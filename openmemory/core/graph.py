@@ -12,13 +12,16 @@ Format in RELATIONS.md:
 from __future__ import annotations
 
 import hashlib
-import time
+import math
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from openmemory.core.index import MemoryIndex
 from openmemory.core.storage import _atomic_write
+
+if TYPE_CHECKING:
+    from openmemory.core.embeddings import EmbeddingProvider
 
 
 def _relation_id(subject: str, predicate: str, object_: str) -> str:
@@ -40,6 +43,54 @@ def _format_relation_line(
     return line
 
 
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Compute cosine similarity between two equal-length float vectors."""
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def _find_semantic_duplicate(
+    index: MemoryIndex,
+    provider: "EmbeddingProvider",
+    subject: str,
+    predicate: str,
+    object_: str,
+    threshold: float,
+) -> Optional[dict]:
+    """
+    Embed ``"{subject} {predicate} {object_}"`` and compare cosine similarity
+    against all existing relations.
+
+    Returns the first existing relation whose similarity to the new triple
+    meets or exceeds *threshold*, or ``None`` if no duplicate is found.
+
+    Returns ``None`` immediately when the provider returns an empty vector
+    (e.g. ``NullEmbeddingProvider``), so semantic dedup is a no-op for
+    BM25-only sessions.
+    """
+    new_text = f"{subject} {predicate} {object_}"
+    new_vec = provider.embed([new_text])[0]
+
+    # NullEmbeddingProvider returns [] — skip semantic dedup
+    if not new_vec:
+        return None
+
+    existing = index.get_all_relations()
+    for row in existing:
+        row_text = f"{row['subject']} {row['predicate']} {row['object']}"
+        row_vec = provider.embed([row_text])[0]
+        if not row_vec:
+            continue
+        sim = _cosine_similarity(new_vec, row_vec)
+        if sim >= threshold:
+            return dict(row)
+    return None
+
+
 def add_relation(
     index: MemoryIndex,
     relations_file: Path,
@@ -48,18 +99,40 @@ def add_relation(
     object_: str,
     note: Optional[str] = None,
     confidence: float = 1.0,
+    provider: Optional["EmbeddingProvider"] = None,
+    dedup_threshold: float = 0.92,
 ) -> dict:
     """
     Record a named relationship between two entities.
 
     - Writes to SQLite relations table (upsert by deterministic ID).
     - Appends a human-readable line to RELATIONS.md.
+    - When *provider* is supplied (and not NullEmbeddingProvider), performs
+      semantic deduplication: if an existing relation is cosine-similar above
+      *dedup_threshold* the new triple is skipped and the existing one returned.
 
-    Returns a dict describing what was written.
+    Returns a dict describing what was written (or the duplicate if deduped).
     """
     subject = subject.strip()
     predicate = predicate.strip()
     object_ = object_.strip()
+
+    # --- Semantic deduplication (only when a real provider is available) ---
+    if provider is not None:
+        duplicate = _find_semantic_duplicate(
+            index, provider, subject, predicate, object_, dedup_threshold
+        )
+        if duplicate is not None:
+            return {
+                "id": duplicate["id"],
+                "subject": duplicate["subject"],
+                "predicate": duplicate["predicate"],
+                "object": duplicate["object"],
+                "note": duplicate.get("note"),
+                "written_to": str(relations_file),
+                "deduplicated": True,
+                "duplicate_of": duplicate["id"],
+            }
 
     relation_id = _relation_id(subject, predicate, object_)
 
@@ -91,6 +164,7 @@ def add_relation(
         "object": object_,
         "note": note,
         "written_to": str(relations_file),
+        "deduplicated": False,
     }
 
 

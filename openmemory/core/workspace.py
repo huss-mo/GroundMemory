@@ -31,6 +31,52 @@ _DEFAULT_AGENTS_MD = """\
 - Use tier "daily" for running notes, task progress, and session context
 - Record relationships between people, teams, and systems with `memory_relate`
 - Before answering questions about people or organizations, check relations: `memory_search`
+
+## memory_relate — Few-Shot Examples
+
+Use `memory_relate` to capture directional facts about entities.
+Always use **snake_case** predicates and keep subjects/objects as concise nouns.
+
+### Good examples
+
+```
+memory_relate(subject="Alice", predicate="works_at", object="Acme Corp",
+              note="joined as senior engineer, March 2026")
+
+memory_relate(subject="Auth Service", predicate="owned_by", object="Platform Team")
+
+memory_relate(subject="Project Phoenix", predicate="depends_on", object="Auth Service")
+
+memory_relate(subject="Bob", predicate="manages", object="Alice",
+              note="Bob is Alice's engineering manager")
+
+memory_relate(subject="Carol", predicate="prefers", object="dark mode",
+              note="user preference stated in session")
+
+memory_relate(subject="data-pipeline", predicate="part_of", object="Analytics Platform")
+
+memory_relate(subject="PostgreSQL", predicate="used_by", object="Auth Service",
+              note="primary datastore")
+```
+
+### Avoid
+
+```
+# Too verbose — predicate should be a short snake_case verb phrase
+memory_relate(subject="Alice", predicate="is an employee of the company", object="Acme Corp")
+
+# Free-text predicate — use snake_case
+memory_relate(subject="Bob", predicate="Is Manager Of", object="Alice")
+```
+
+### When to relate vs. write
+
+| Situation | Tool |
+|-----------|------|
+| Durable fact about a person or system | `memory_relate` |
+| Preference, decision, or free-form note | `memory_write` |
+| Session task progress | `memory_write` (tier="daily") |
+| Structural org/system dependency | `memory_relate` |
 """
 
 _DEFAULT_RELATIONS_MD = """\

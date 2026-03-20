@@ -75,6 +75,8 @@ def run(
             object_=object.strip(),
             note=note,
             confidence=clamped_confidence,
+            provider=session.provider,
+            dedup_threshold=session.config.relations.dedup_threshold,
         )
     except Exception as exc:  # noqa: BLE001
         return err(f"Failed to record relation: {exc}")

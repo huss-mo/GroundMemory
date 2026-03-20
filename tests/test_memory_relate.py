@@ -1,6 +1,14 @@
 """Tests for the memory_relate tool."""
 from __future__ import annotations
 
+import uuid
+import pytest
+
+from openmemory.config import OpenMemoryConfig, EmbeddingConfig, SearchConfig, RelationsConfig
+from openmemory.session import MemorySession
+from openmemory.core.embeddings import NullEmbeddingProvider
+from openmemory.core import graph as _graph
+
 
 class TestMemoryRelateBasic:
     def test_relate_returns_ok(self, session):
@@ -126,3 +134,153 @@ class TestMemoryRelateValidation:
         r = session.execute_tool("memory_relate", subject="X", predicate="knows")
         assert isinstance(r, dict)
         assert "status" in r
+
+
+# ---------------------------------------------------------------------------
+# Semantic dedup unit tests (use a deterministic fake provider)
+# ---------------------------------------------------------------------------
+
+class _FixedVectorProvider:
+    """
+    Fake embedding provider that returns a fixed vector for each text.
+    Mapping: text -> vector is provided at construction time.
+    Unknown texts get the zero vector (so cosine sim = 0 → not a duplicate).
+    """
+
+    model_id = "fixed-test-provider"
+    dimensions = 3
+
+    def __init__(self, mapping: dict[str, list[float]]) -> None:
+        self._mapping = mapping
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        return [self._mapping.get(t, [0.0, 0.0, 0.0]) for t in texts]
+
+
+def _make_dedup_session(tmp_path, provider, threshold=0.92):
+    """Create a session with a custom provider and dedup threshold."""
+    cfg = OpenMemoryConfig(
+        root_dir=tmp_path,
+        workspace="dedup-test",
+        embedding=EmbeddingConfig(provider="none"),
+        search=SearchConfig(),
+        relations=RelationsConfig(dedup_threshold=threshold),
+    )
+    name = uuid.uuid4().hex[:8]
+    s = MemorySession.create(name, config=cfg)
+    # Swap the NullEmbeddingProvider for our fake one
+    s.provider = provider
+    return s
+
+
+class TestSemanticDedup:
+    def test_no_dedup_with_null_provider(self, session):
+        """NullEmbeddingProvider returns empty vectors → dedup is skipped."""
+        # Add the same semantic relation twice with slightly different wording
+        session.execute_tool(
+            "memory_relate", subject="Alice", predicate="works_at", object="Acme"
+        )
+        session.execute_tool(
+            "memory_relate", subject="Alice", predicate="employed_by", object="Acme"
+        )
+        # Both should be stored (no semantic dedup without real embeddings)
+        rows = session.index.get_all_relations()
+        assert len(rows) == 2
+
+    def test_exact_duplicate_not_re_added_to_file(self, session):
+        """Exact-match dedup via SHA hash still works regardless of provider."""
+        session.execute_tool(
+            "memory_relate", subject="Alice", predicate="works_at", object="Acme"
+        )
+        session.execute_tool(
+            "memory_relate", subject="Alice", predicate="works_at", object="Acme"
+        )
+        # SQLite upsert means still only one row
+        rows = session.index.get_all_relations()
+        assert len(rows) == 1
+
+    def test_semantic_duplicate_skipped(self, tmp_path):
+        """High-similarity triples are deduplicated when using a real provider."""
+        # Both triples map to the same vector → cosine sim = 1.0 ≥ 0.92
+        vec = [1.0, 0.0, 0.0]
+        provider = _FixedVectorProvider({
+            "Alice works_at Acme": vec,
+            "Alice employed_by Acme": vec,
+        })
+        s = _make_dedup_session(tmp_path, provider, threshold=0.92)
+        try:
+            s.execute_tool(
+                "memory_relate", subject="Alice", predicate="works_at", object="Acme"
+            )
+            r2 = s.execute_tool(
+                "memory_relate", subject="Alice", predicate="employed_by", object="Acme"
+            )
+            # Second call returns ok (dedup is silent — not an error)
+            assert r2["status"] == "ok"
+            # Only one relation should be stored in SQLite
+            rows = s.index.get_all_relations()
+            assert len(rows) == 1
+        finally:
+            s.close()
+
+    def test_dissimilar_triple_not_deduplicated(self, tmp_path):
+        """Low-similarity triples are NOT deduplicated."""
+        provider = _FixedVectorProvider({
+            "Alice works_at Acme": [1.0, 0.0, 0.0],
+            "Bob manages Carol": [0.0, 1.0, 0.0],
+        })
+        s = _make_dedup_session(tmp_path, provider, threshold=0.92)
+        try:
+            s.execute_tool(
+                "memory_relate", subject="Alice", predicate="works_at", object="Acme"
+            )
+            s.execute_tool(
+                "memory_relate", subject="Bob", predicate="manages", object="Carol"
+            )
+            rows = s.index.get_all_relations()
+            assert len(rows) == 2
+        finally:
+            s.close()
+
+    def test_dedup_threshold_respected(self, tmp_path):
+        """Triples below the threshold are stored even when somewhat similar."""
+        import math
+        # Two vectors with ~0.5 cosine similarity
+        v1 = [1.0, 0.0, 0.0]
+        v2 = [0.0, 1.0, 0.0]
+        provider = _FixedVectorProvider({
+            "Alice works_at Acme": v1,
+            "Alice employed_by Acme Corp": v2,
+        })
+        # Set threshold very high (0.99) — these vectors have sim=0.0 < 0.99
+        s = _make_dedup_session(tmp_path, provider, threshold=0.99)
+        try:
+            s.execute_tool(
+                "memory_relate", subject="Alice", predicate="works_at", object="Acme"
+            )
+            s.execute_tool(
+                "memory_relate",
+                subject="Alice",
+                predicate="employed_by",
+                object="Acme Corp",
+            )
+            rows = s.index.get_all_relations()
+            assert len(rows) == 2
+        finally:
+            s.close()
+
+    def test_cosine_similarity_pure_function(self):
+        """Unit-test the _cosine_similarity helper directly."""
+        from openmemory.core.graph import _cosine_similarity
+
+        # Identical vectors → similarity 1.0
+        assert _cosine_similarity([1.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)
+
+        # Orthogonal vectors → similarity 0.0
+        assert _cosine_similarity([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0)
+
+        # Opposite vectors → similarity -1.0
+        assert _cosine_similarity([1.0, 0.0], [-1.0, 0.0]) == pytest.approx(-1.0)
+
+        # Zero vector → similarity 0.0 (no division by zero)
+        assert _cosine_similarity([0.0, 0.0], [1.0, 0.0]) == pytest.approx(0.0)

@@ -172,6 +172,24 @@ class CompactionConfig(BaseSettings):
     )
 
 
+class RelationsConfig(BaseSettings):
+    """Relation graph configuration.
+
+    Environment variables (prefix: OPENMEMORY_RELATIONS__):
+        DEDUP_THRESHOLD – cosine similarity above which two triples are
+                          considered semantic duplicates (0.0–1.0).
+                          Set to 1.0 to disable semantic dedup (exact-match only).
+    """
+
+    model_config = SettingsConfigDict(
+        env_prefix="OPENMEMORY_RELATIONS__",
+        env_file=".env",
+        extra="ignore",
+    )
+
+    dedup_threshold: float = 0.92
+
+
 class BootstrapConfig(BaseSettings):
     """Bootstrap injection configuration.
 
@@ -238,6 +256,7 @@ class OpenMemoryConfig(BaseSettings):
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
+    relations: RelationsConfig = Field(default_factory=RelationsConfig)
     compaction: CompactionConfig = Field(default_factory=CompactionConfig)
     bootstrap: BootstrapConfig = Field(default_factory=BootstrapConfig)
 
@@ -269,6 +288,7 @@ class OpenMemoryConfig(BaseSettings):
         embedding_data = data.pop("embedding", {})
         chunking_data = data.pop("chunking", {})
         search_data = data.pop("search", {})
+        relations_data = data.pop("relations", {})
         compaction_data = data.pop("compaction", {})
         bootstrap_data = data.pop("bootstrap", {})
 
@@ -285,6 +305,7 @@ class OpenMemoryConfig(BaseSettings):
         embedding = EmbeddingConfig(**_filter_env_overrides(embedding_data, "OPENMEMORY_EMBEDDING__"))
         chunking = ChunkingConfig(**_filter_env_overrides(chunking_data, "OPENMEMORY_CHUNKING__"))
         search = SearchConfig(**_filter_env_overrides(search_data, "OPENMEMORY_SEARCH__"))
+        relations = RelationsConfig(**_filter_env_overrides(relations_data, "OPENMEMORY_RELATIONS__"))
         compaction = CompactionConfig(**_filter_env_overrides(compaction_data, "OPENMEMORY_COMPACTION__"))
         bootstrap = BootstrapConfig(**_filter_env_overrides(bootstrap_data, "OPENMEMORY_BOOTSTRAP__"))
 
@@ -292,6 +313,7 @@ class OpenMemoryConfig(BaseSettings):
             embedding=embedding,
             chunking=chunking,
             search=search,
+            relations=relations,
             compaction=compaction,
             bootstrap=bootstrap,
             **data,
