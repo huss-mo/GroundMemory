@@ -1,19 +1,23 @@
-# OpenMemory — Documentation
+# OpenMemory - Documentation
 
-This document covers integration guides, configuration reference, and environment variables.
-For a project overview, see [README.md](README.md).
+This document covers installation, integration guides, configuration reference, and environment variables.
+For a project overview and quick start, see [README.md](README.md).
 
 ---
 
 ## Table of Contents
 
-- [OpenMemory — Documentation](#openmemory--documentation)
+- [OpenMemory - Documentation](#openmemory---documentation)
   - [Table of Contents](#table-of-contents)
+  - [Installation \& Configuration](#installation--configuration)
+    - [Docker](#docker)
+    - [pip](#pip)
+    - [Embedding Providers](#embedding-providers)
   - [MCP Server](#mcp-server)
     - [Running the Server](#running-the-server)
     - [Client Configuration](#client-configuration)
     - [Available MCP Tools](#available-mcp-tools)
-  - [Connecting to Your AI Agent](#connecting-to-your-ai-agent)
+  - [Connecting to Your AI Agent Using The Python API](#connecting-to-your-ai-agent-using-the-python-api)
     - [OpenAI](#openai)
     - [Anthropic](#anthropic)
   - [Python API Example](#python-api-example)
@@ -42,9 +46,141 @@ For a project overview, see [README.md](README.md).
 
 ---
 
+## Installation & Configuration
+
+### Docker
+
+Docker is the recommended way to run OpenMemory. It requires no Python environment setup and keeps your workspace data in a local `./data` directory.
+
+```bash
+git clone https://github.com/huss-mo/OpenMemory
+cd OpenMemory
+cp .env.example .env
+docker compose up -d
+# → listening on http://localhost:4242/mcp
+```
+
+The default compose file starts a single `openmemory` service using BM25-only search (no embedding API required). Edit `.env` to switch providers - see [Embedding Providers](#embedding-providers) below.
+
+To run a **second workspace** on a different port (e.g. for a separate project or user), uncomment the `openmemory-personal` service in `docker-compose.yml`:
+
+```yaml
+# openmemory-personal:
+#   build:
+#     context: .
+#   image: openmemory:latest
+#   restart: unless-stopped
+#   ports:
+#     - "4243:4242"
+#   volumes:
+#     - ./data:/data
+#   env_file:
+#     - .env
+#   environment:
+#     OPENMEMORY_WORKSPACE: personal
+```
+
+Workspace data is stored in `./data/<workspace-name>/` on the host and persists across container restarts.
+
+**Building with sentence-transformers (local embeddings)**
+
+The default Docker image does not include `sentence-transformers`. To build an image that supports the `local` embedding provider, pass the `EXTRAS=local` build argument:
+
+```bash
+docker compose build --build-arg EXTRAS=local
+docker compose up -d
+```
+
+Then set `OPENMEMORY_EMBEDDING__PROVIDER=local` in your `.env`.
+
+### pip
+
+For development or direct integration without Docker:
+
+```bash
+git clone https://github.com/huss-mo/OpenMemory
+cd OpenMemory
+
+# BM25-only - no extra dependencies
+pip install -e .
+
+# With local sentence-transformers embeddings
+pip install -e ".[local]"
+
+# Or with uv
+uv sync
+uv sync --extra local   # for sentence-transformers support
+```
+
+Then start the MCP server:
+
+```bash
+OPENMEMORY_WORKSPACE=my-project openmemory-mcp
+# → listening on http://0.0.0.0:4242/mcp
+```
+
+### Embedding Providers
+
+OpenMemory supports three embedding providers. You can switch between them at any time by changing `OPENMEMORY_EMBEDDING__PROVIDER` (or `embedding.provider` in `openmemory.yaml`). No data migration is required.
+
+| Provider | Value | Extra install required? | When to use |
+|---|---|---|---|
+| BM25-only | `none` | No | Default. Pure keyword search via SQLite FTS5. Works offline, no API key needed. |
+| OpenAI-compatible API | `openai` | No | Any HTTP embedding API: OpenAI, Ollama, LM Studio, LiteLLM, vLLM, Mistral, etc. Requires `OPENMEMORY_EMBEDDING__BASE_URL` and `OPENMEMORY_EMBEDDING__API_KEY`. |
+| Local sentence-transformers | `local` | Yes - `pip install -e ".[local]"` or `--build-arg EXTRAS=local` for Docker | Fully offline vector embeddings. Downloads model on first run. |
+
+**`none` - BM25-only (default)**
+
+No configuration needed. OpenMemory uses SQLite FTS5 for all search. Ideal for getting started quickly or for air-gapped environments.
+
+```bash
+OPENMEMORY_EMBEDDING__PROVIDER=none openmemory-mcp
+```
+
+**`openai` - OpenAI-compatible HTTP API**
+
+Works with any endpoint that follows the OpenAI embeddings API format. No extra Python packages are required - only `httpx`, which is a core dependency already installed with OpenMemory.
+
+```bash
+# Real OpenAI
+OPENMEMORY_EMBEDDING__PROVIDER=openai \
+OPENMEMORY_EMBEDDING__API_KEY=sk-... \
+OPENMEMORY_EMBEDDING__MODEL=text-embedding-3-small \
+openmemory-mcp
+
+# Ollama (local server, no API key needed)
+OPENMEMORY_EMBEDDING__PROVIDER=openai \
+OPENMEMORY_EMBEDDING__BASE_URL=http://localhost:11434/v1 \
+OPENMEMORY_EMBEDDING__API_KEY=ollama \
+OPENMEMORY_EMBEDDING__MODEL=nomic-embed-text \
+openmemory-mcp
+
+# LM Studio
+OPENMEMORY_EMBEDDING__PROVIDER=openai \
+OPENMEMORY_EMBEDDING__BASE_URL=http://localhost:1234/v1 \
+OPENMEMORY_EMBEDDING__API_KEY=lm-studio \
+OPENMEMORY_EMBEDDING__MODEL=nomic-ai/nomic-embed-text-v1.5-GGUF \
+openmemory-mcp
+```
+
+**`local` - sentence-transformers (offline)**
+
+Runs a local embedding model entirely on your machine - no network call, no API key. Requires installing the optional `local` extra, which pulls in `sentence-transformers` and its dependencies (PyTorch, Transformers, etc.). The model is downloaded from HuggingFace on first use.
+
+```bash
+# Install the extra first
+pip install -e ".[local]"
+
+OPENMEMORY_EMBEDDING__PROVIDER=local \
+OPENMEMORY_EMBEDDING__LOCAL_MODEL=all-MiniLM-L6-v2 \
+openmemory-mcp
+```
+
+---
+
 ## MCP Server
 
-OpenMemory can run as a standalone MCP (Model Context Protocol) server over HTTP, exposing all 6 memory tools to any MCP-compatible client — including Claude Desktop, Cursor, Cline, and custom agents.
+OpenMemory can run as a standalone MCP (Model Context Protocol) server over HTTP, exposing all 6 memory tools to any MCP-compatible client - including Claude Desktop, Cursor, Cline, and custom agents.
 
 Each server instance owns a single workspace. Multiple workspaces require multiple server processes running on different ports.
 
@@ -82,7 +218,7 @@ Add the following to your client's MCP server configuration. The exact file path
 {
   "mcpServers": {
     "openmemory": {
-      "url": "http://localhost:4242/mcp"
+      "url": "http://<server-ip>:4242/mcp"
     }
   }
 }
@@ -103,9 +239,9 @@ Once connected, the client has access to all 6 memory tools:
 
 ---
 
-## Connecting to Your AI Agent
+## Connecting to Your AI Agent Using The Python API
 
-OpenMemory exposes standard JSON schemas for function calling, compatible with OpenAI and Anthropic out of the box. The primary export is `ALL_TOOLS` — a list of `(schema, run)` pairs. Pass the schemas to the model so it knows what tools are available; when the model calls a tool, dispatch it back through the paired `run` function (or use `session.execute_tool` directly). Both paths are shown below.
+OpenMemory exposes standard JSON schemas for function calling, compatible with OpenAI and Anthropic out of the box. The primary export is `ALL_TOOLS` - a list of `(schema, run)` pairs. Pass the schemas to the model so it knows what tools are available; when the model calls a tool, dispatch it back through the paired `run` function (or use `session.execute_tool` directly). Both paths are shown below.
 
 ### OpenAI
 
@@ -212,7 +348,7 @@ Use `session.execute_tool(name, **kwargs)` to call tools programmatically, or pa
 | `memory_write` | Write a memory to long-term storage (`MEMORY.md`) or today's daily log | `content` |
 | `memory_search` | Hybrid semantic + keyword search across all memory tiers | `query` |
 | `memory_get` | Retrieve a specific memory chunk by ID | `chunk_id` |
-| `memory_list` | List memory chunks with optional source filter and pagination | — |
+| `memory_list` | List memory chunks with optional source filter and pagination | - |
 | `memory_delete` | Delete a specific memory chunk by ID | `chunk_id` |
 | `memory_relate` | Record a typed entity relationship (`subject → predicate → object`) | `subject`, `predicate`, `object` |
 
@@ -264,11 +400,11 @@ Splits Markdown files into overlapping chunks that respect heading boundaries. E
 #### 4. Embedding Providers (`openmemory/core/embeddings.py`)
 Abstract `EmbeddingProvider` with three concrete implementations:
 
-| Provider | Class | When to use |
-|---|---|---|
-| `none` | `NullEmbeddingProvider` | Zero-dep BM25-only mode — returns empty vectors |
-| `local` | `SentenceTransformerProvider` | Offline embeddings via `sentence-transformers` |
-| `openai` | `OpenAICompatibleProvider` | Any OpenAI-compatible HTTP endpoint (OpenAI, Ollama, LM Studio, LiteLLM, …) |
+| Provider | Class | Extra install | When to use |
+|---|---|---|---|
+| `none` | `NullEmbeddingProvider` | None | Zero-dep BM25-only mode - returns empty vectors; no API key or GPU needed |
+| `openai` | `OpenAICompatibleProvider` | None (`httpx` is a core dep) | Any OpenAI-compatible HTTP endpoint (OpenAI, Ollama, LM Studio, LiteLLM, …) |
+| `local` | `SentenceTransformerProvider` | `pip install -e ".[local]"` | Fully offline embeddings via `sentence-transformers`; model downloaded on first run |
 
 #### 5. Memory Index (`openmemory/core/index.py`)
 SQLite database (`memory.db`) with five tables:
@@ -277,7 +413,7 @@ SQLite database (`memory.db`) with five tables:
 |---|---|
 | `files` | Tracks indexed files with SHA-256 hash + mtime for change detection |
 | `chunks` | Text chunks with JSON-serialised embedding vectors |
-| `chunks_fts` | FTS5 virtual table — BM25 keyword search via SQLite triggers |
+| `chunks_fts` | FTS5 virtual table - BM25 keyword search via SQLite triggers |
 | `relations` | Named entity relationships (subject → predicate → object) |
 | `embedding_cache` | Reuses embeddings when chunk content hasn't changed |
 
@@ -286,25 +422,25 @@ Vector search is implemented in pure Python (NumPy cosine similarity) so it work
 #### 6. Hybrid Search (`openmemory/core/search.py`)
 Seven-step pipeline:
 1. **Embed** the query via the configured provider.
-2. **Vector search** — cosine similarity over all chunk embeddings → top `k × candidate_multiplier` candidates.
-3. **Keyword search** — FTS5 BM25 → top `k × candidate_multiplier` candidates.
-4. **Merge & re-score** — `score = vector_weight × vec_score + (1 − vector_weight) × bm25_score`.
-5. **Temporal decay** — `score × exp(−decay_rate × days_old)` (disabled by default).
-6. **Graph expansion** — extract entity mentions from top results, attach related relation triples as `relation_context`.
+2. **Vector search** - cosine similarity over all chunk embeddings → top `k × candidate_multiplier` candidates.
+3. **Keyword search** - FTS5 BM25 → top `k × candidate_multiplier` candidates.
+4. **Merge & re-score** - `score = vector_weight × vec_score + (1 − vector_weight) × bm25_score`.
+5. **Temporal decay** - `score × exp(−decay_rate × days_old)` (disabled by default).
+6. **Graph expansion** - extract entity mentions from top results, attach related relation triples as `relation_context`.
 7. Return top `k` as `SearchResult` objects.
 
 #### 7. Relation Graph (`openmemory/core/graph.py`)
 Stores typed entity triples (`subject → predicate → object`) in two places simultaneously:
-- **SQLite** `relations` table — fast structured lookup.
-- **`RELATIONS.md`** — human-readable, editable, injected at bootstrap.
+- **SQLite** `relations` table - fast structured lookup.
+- **`RELATIONS.md`** - human-readable, editable, injected at bootstrap.
 
 Semantic deduplication: before inserting, the new triple is embedded and compared (cosine similarity) against all existing triples. If similarity ≥ `dedup_threshold` (default 0.92) the write is skipped and the existing triple is returned.
 
 #### 8. Sync (`openmemory/core/sync.py`)
-Keeps the SQLite index consistent with the Markdown files using SHA-256 content hashing (not timestamps). `sync_workspace` walks all files and re-indexes changed ones. `sync_file` force-syncs a single file — called immediately after every `memory_write` so new content is searchable within the same session.
+Keeps the SQLite index consistent with the Markdown files using SHA-256 content hashing (not timestamps). `sync_workspace` walks all files and re-indexes changed ones. `sync_file` force-syncs a single file - called immediately after every `memory_write` so new content is searchable within the same session.
 
 #### 9. Bootstrap Injector (`openmemory/bootstrap/injector.py`)
-Assembles a system-prompt block from workspace files, respecting per-file and total character budgets (`max_chars_per_file`, `max_total_chars`). Truncated files get a visible `[TRUNCATED — use memory_get to read the rest]` marker. Injects (in order): long-term memory, user profile, agent instructions, relation graph, yesterday's and today's daily logs.
+Assembles a system-prompt block from workspace files, respecting per-file and total character budgets (`max_chars_per_file`, `max_total_chars`). Truncated files get a visible `[TRUNCATED - use memory_get to read the rest]` marker. Injects (in order): long-term memory, user profile, agent instructions, relation graph, yesterday's and today's daily logs.
 
 #### 10. Compaction Hooks (`openmemory/bootstrap/compaction.py`)
 `should_flush(current_tokens, context_window, cfg)` returns `True` when the remaining context budget drops below the configured threshold. `get_compaction_prompts(cfg)` returns the `{system, user}` messages the agent uses to flush important facts to storage before the window is summarised.
@@ -315,16 +451,16 @@ Six JSON-schema-described tools exposed to the LLM via function calling:
 | Tool | File written | Notes |
 |---|---|---|
 | `memory_write` | `MEMORY.md` or `daily/YYYY-MM-DD.md` | Immediately re-indexes the changed file |
-| `memory_search` | — | Full hybrid search pipeline |
-| `memory_get` | — | Line-range read of any workspace file |
-| `memory_list` | — | Directory listing or file preview |
+| `memory_search` | - | Full hybrid search pipeline |
+| `memory_get` | - | Line-range read of any workspace file |
+| `memory_list` | - | Directory listing or file preview |
 | `memory_delete` | Any workspace file | Tombstone-style deletion with audit comment; re-indexes |
 | `memory_relate` | `RELATIONS.md` + SQLite | Semantic dedup before insert |
 
 #### 12. LLM Adapters (`openmemory/adapters/`)
 Thin schema-conversion + agentic-loop helpers:
-- **`adapters/openai.py`** — converts schemas to OpenAI function-calling format; `handle_tool_calls` dispatches tool calls and appends results to the message list; `run_agent_loop` iterates until the model stops calling tools.
-- **`adapters/anthropic.py`** — same for Anthropic's `tool_use` / `tool_result` block format.
+- **`adapters/openai.py`** - converts schemas to OpenAI function-calling format; `handle_tool_calls` dispatches tool calls and appends results to the message list; `run_agent_loop` iterates until the model stops calling tools.
+- **`adapters/anthropic.py`** - same for Anthropic's `tool_use` / `tool_result` block format.
 
 #### 13. Session (`openmemory/session.py`)
 `MemorySession` is the composition root that holds references to `Workspace`, `MemoryIndex`, and `EmbeddingProvider`. It exposes `execute_tool`, `bootstrap`, `sync`, `should_compact`, and `compaction_prompts` as the primary API surface.
@@ -392,8 +528,8 @@ Next session: session.bootstrap() reloads persisted facts
 | Database | SQLite via `sqlite3` stdlib, WAL mode (`PRAGMA journal_mode=WAL`) |
 | Full-text search | SQLite FTS5 (BM25) with auto-sync triggers |
 | Vector search | NumPy cosine similarity (pure Python; no native extension required) |
-| Embeddings — local | `sentence-transformers` (optional extra) |
-| Embeddings — remote | Any OpenAI-compatible HTTP endpoint via `httpx` |
+| Embeddings - local | `sentence-transformers` (optional extra; not installed by default) |
+| Embeddings - remote | Any OpenAI-compatible HTTP endpoint via `httpx` (core dependency) |
 | HTTP client | `httpx` |
 | Packaging | `hatchling` build backend (`pyproject.toml`), installable via `uv` or `pip` |
 | Tests | `pytest` (108 tests: 99 unit, 9 integration) |
@@ -404,7 +540,7 @@ Next session: session.bootstrap() reloads persisted facts
 
 ### Minimum Config
 
-No configuration file is required. With no config, OpenMemory uses BM25-only search backed by SQLite — no API key, no GPU, no extra packages.
+No configuration file is required. With no config, OpenMemory uses BM25-only search backed by SQLite - no API key, no GPU, no extra packages.
 
 ### openmemory.yaml Reference
 
@@ -426,18 +562,20 @@ Place `openmemory.yaml` in your project root (or cwd). Settings here are overrid
 # ---------------------------------------------------------------------------
 embedding:
   # provider options:
-  #   "none"   — BM25-only, no extra deps, no API key needed
-  #   "local"  — sentence-transformers (install with: pip install -e ".[local]")
-  #   "openai" — any OpenAI-compatible HTTP endpoint
+  #   "none"   - BM25-only, no extra deps, no API key needed (default)
+  #   "openai" - any OpenAI-compatible HTTP endpoint, no extra deps needed
+  #   "local"  - sentence-transformers (install with: pip install -e ".[local]")
   provider: none
 
   # --- sentence-transformers (provider: local) ---
+  # Requires: pip install -e ".[local]"  (not installed by default)
   # Any model from https://www.sbert.net/docs/pretrained_models.html
   # local_model: all-MiniLM-L6-v2      # fast, 384-dim, good general quality
   # local_model: all-mpnet-base-v2     # slower, 768-dim, higher quality
 
   # --- OpenAI-compatible API (provider: openai) ---
-  # Supports OpenAI, Ollama, LM Studio, vLLM, LiteLLM, Mistral, Together, etc.
+  # No extra install required. Supports OpenAI, Ollama, LM Studio, vLLM,
+  # LiteLLM, Mistral, Together, and any endpoint following the OpenAI format.
 
   # Real OpenAI:
   # base_url: ~        # leave blank to use api.openai.com
@@ -505,7 +643,7 @@ relations:
   dedup_threshold: 0.92
 
 # ---------------------------------------------------------------------------
-# Bootstrap — system-prompt injection at session start
+# Bootstrap - system-prompt injection at session start
 # ---------------------------------------------------------------------------
 bootstrap:
   # Maximum characters per file before a truncation warning is appended
@@ -522,7 +660,7 @@ bootstrap:
   inject_relations: true         # RELATIONS.md
 
 # ---------------------------------------------------------------------------
-# Compaction — pre-context-window-flush hooks
+# Compaction - pre-context-window-flush hooks
 # ---------------------------------------------------------------------------
 compaction:
   # Enable compaction detection
@@ -548,7 +686,6 @@ compaction:
 #   port: 4242
 ```
 
-
 ---
 
 ### Environment Variables
@@ -559,9 +696,9 @@ All settings are available as environment variables using the `OPENMEMORY_` pref
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENMEMORY_EMBEDDING__PROVIDER` | `none` / `local` / `openai` | `local` |
-| `OPENMEMORY_EMBEDDING__BASE_URL` | OpenAI-compatible endpoint URL | — |
-| `OPENMEMORY_EMBEDDING__API_KEY` | API key for the endpoint | — |
+| `OPENMEMORY_EMBEDDING__PROVIDER` | `none` / `local` / `openai` | `none` |
+| `OPENMEMORY_EMBEDDING__BASE_URL` | OpenAI-compatible endpoint URL | - |
+| `OPENMEMORY_EMBEDDING__API_KEY` | API key for the endpoint | - |
 | `OPENMEMORY_EMBEDDING__MODEL` | Embedding model name (provider: openai) | `text-embedding-3-small` |
 | `OPENMEMORY_EMBEDDING__LOCAL_MODEL` | sentence-transformers model name | `all-MiniLM-L6-v2` |
 | `OPENMEMORY_EMBEDDING__BATCH_SIZE` | Texts per embedding API call | `64` |

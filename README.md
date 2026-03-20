@@ -2,7 +2,7 @@
 
 # OpenMemory
 
-**Persistent, semantic memory for AI agents — local-first, framework-agnostic, production-ready.**
+**Persistent, semantic memory for AI agents - local-first, framework-agnostic, production-ready.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-108%20passing-brightgreen.svg)](#running-the-test-suite)
@@ -13,38 +13,40 @@
 
 ---
 
-Add persistent memory to any MCP-compatible agent in three steps.
+## Quick Start
 
-**1. Install**
-
-```bash
-git clone https://github.com/huss-mo/OpenMemory
-cd openmemory
-pip install -e .
-```
-
-**2. Start the memory server**
+### Option 1 - Docker (recommended)
 
 ```bash
-OPENMEMORY_WORKSPACE=my-project openmemory-mcp
+git clone https://github.com/huss-mo/OpenMemory && cd OpenMemory
+docker compose up -d
 # → listening on http://0.0.0.0:4242/mcp
 ```
 
-**3. Point your client at it**
+### Option 2 - pip
+
+```bash
+git clone https://github.com/huss-mo/OpenMemory && cd OpenMemory
+pip install -e .
+openmemory-mcp
+# → listening on http://0.0.0.0:4242/mcp
+```
+
+### Connect your client
 
 ```json
 {
   "mcpServers": {
     "openmemory": {
-      "url": "http://localhost:4242/mcp"
+      "url": "http://<server-ip>:4242/mcp"
     }
   }
 }
 ```
 
-Your agent now has structured, searchable memory that persists across every session — long-term facts, a user profile, agent instructions, an entity graph, and daily logs — all managed automatically. No changes to your agent's code required.
+Your agent now has structured, searchable memory that persists across every session - long-term facts, a user profile, agent instructions, an entity graph, and daily logs - all managed automatically. No changes to your agent's code required.
 
-For embedding providers, multiple workspaces, and the Python API, see [Installation & Configuration](#installation--configuration) below.
+For installation options, embedding providers, multiple workspaces, and the Python API, see [DOCS.md](DOCS.md).
 
 ---
 
@@ -52,13 +54,13 @@ For embedding providers, multiple workspaces, and the Python API, see [Installat
 
 Without memory, every session starts from zero. With OpenMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with.
 
-**A coding assistant that doesn't repeat itself.** It remembers your stack, your preferred patterns, the architectural decisions you've already made, and the approaches you've already ruled out — so it stops re-suggesting the same things.
+**A coding assistant that doesn't repeat itself.** It remembers your stack, your preferred patterns, the architectural decisions you've already made, and the approaches you've already ruled out - so it stops re-suggesting the same things.
 
 **A personal assistant that builds a profile over time.** After a few weeks it knows your schedule, your priorities, the people you work with, and how you like to communicate. It doesn't need to ask.
 
 **A research agent that constructs a knowledge graph.** As it reads papers and sources across many sessions, it records entities, relationships, and findings. Searches later return relevant facts regardless of how they were originally worded.
 
-**A customer-facing agent with per-user memory.** Each user gets their own workspace — preferences, history, ongoing context — giving every interaction a personalised, stateful feel without any custom infrastructure.
+**A customer-facing agent with per-user memory.** Each user gets their own workspace - preferences, history, ongoing context - giving every interaction a personalised, stateful feel without any custom infrastructure.
 
 **A long-running autonomous agent that survives context limits.** When the context window fills, compaction hooks instruct the agent to flush important facts to memory before the window rolls over. The next session picks up exactly where the last one left off.
 
@@ -66,105 +68,36 @@ Without memory, every session starts from zero. With OpenMemory, agents can main
 
 ## What OpenMemory Does
 
-Most agents forget everything the moment a conversation ends. They ask the same questions again, repeat the same mistakes, and lose track of the user's preferences and ongoing work. This is not a model limitation — it is missing infrastructure.
+Most agents forget everything the moment a conversation ends. They ask the same questions again, repeat the same mistakes, and lose track of the user's preferences and ongoing work. This is not a model limitation - it is missing infrastructure.
 
 OpenMemory provides that infrastructure. It gives your agent a structured, searchable memory that persists across sessions, organised into distinct tiers with clear ownership:
 
 | File | Purpose |
 |---|---|
-| `MEMORY.md` | Curated long-term facts — preferences, decisions, persistent knowledge. Written by the agent using `memory_write(tier="long_term")`. Survives forever. |
-| `USER.md` | Stable user profile — name, role, working style. Edited manually or by the agent. Injected at every session start. |
-| `AGENTS.md` | Agent operating instructions — how this agent should behave, what tools to use and when. Seeded with sensible defaults. |
-| `RELATIONS.md` | Entity relationship graph — typed triples (`Alice → works_at → Acme Corp`). Written by `memory_relate`, human-readable mirror of the SQLite graph. |
-| `daily/YYYY-MM-DD.md` | Append-only daily logs — task progress, running notes, session context. Written by `memory_write(tier="daily")`. |
+| `MEMORY.md` | Curated long-term facts - preferences, decisions, persistent knowledge. Written by the agent using `memory_write(tier="long_term")`. Survives forever. |
+| `USER.md` | Stable user profile - name, role, working style. Edited manually or by the agent. Injected at every session start. |
+| `AGENTS.md` | Agent operating instructions - how this agent should behave, what tools to use and when. Seeded with sensible defaults. |
+| `RELATIONS.md` | Entity relationship graph - typed triples (`Alice → works_at → Acme Corp`). Written by `memory_relate`, human-readable mirror of the SQLite graph. |
+| `daily/YYYY-MM-DD.md` | Append-only daily logs - task progress, running notes, session context. Written by `memory_write(tier="daily")`. |
 
-At session start, all of these files are assembled into a compact system prompt block your agent receives as context — called **bootstrap injection**. At search time, all tiers are queried together or individually.
+At session start, all of these files are assembled into a compact system prompt block your agent receives as context - called **bootstrap injection**. At search time, all tiers are queried together or individually.
 
 Additional capabilities:
 
-- **Hybrid search** — BM25 keyword scoring and vector cosine similarity are combined and re-ranked in a single query, so recall is accurate even when the wording differs from what was stored.
-- **Zero-setup mode** — with `provider: none`, OpenMemory runs entirely on SQLite with FTS5. No API key, no GPU, no extra dependencies.
-- **Pluggable embedding providers** — swap between a local sentence-transformers model, any OpenAI-compatible endpoint (OpenAI, Ollama, LM Studio, LiteLLM), or BM25-only without touching your agent code.
-- **Workspace isolation** — each project, user, or agent gets its own directory-backed workspace with independent memory, relations, and daily logs.
-- **Relation graph with semantic deduplication** — the graph automatically suppresses near-duplicate triples using configurable cosine similarity thresholding.
-- **Compaction hooks** — when a session approaches the context window limit, OpenMemory emits structured prompts that instruct the agent to flush important facts to storage before the window rolls over.
-
----
-
-## Installation & Configuration
-
-### Installation
-
-```bash
-git clone https://github.com/huss-mo/OpenMemory
-cd openmemory
-
-# BM25-only (no extra dependencies)
-pip install -e .
-
-# With local sentence-transformers embeddings
-pip install -e ".[local]"
-
-# Or with uv
-uv sync
-uv sync --extra local   # for sentence-transformers support
-```
-
-### MCP Server
-
-The recommended integration. Run OpenMemory as an HTTP server and connect any MCP-compatible client — Claude Desktop, Cursor, Cline, or a custom agent — without touching your agent's code.
-
-```bash
-# Start with a named workspace
-OPENMEMORY_WORKSPACE=my-project openmemory-mcp
-# → listening on http://0.0.0.0:4242/mcp
-
-# Custom host and port
-OPENMEMORY_MCP_HOST=127.0.0.1 OPENMEMORY_MCP_PORT=9000 openmemory-mcp
-```
-
-Add to your client's MCP config:
-
-```json
-{
-  "mcpServers": {
-    "openmemory": {
-      "url": "http://localhost:4242/mcp"
-    }
-  }
-}
-```
-
-For client-specific config file paths, environment variables, and multi-workspace setup, see the [MCP Server section in DOCS.md](DOCS.md#mcp-server).
-
-### Python API
-
-For direct integration with OpenAI, Anthropic, or any custom agent loop:
-
-```python
-from openmemory.session import MemorySession
-
-session = MemorySession.create("my-project")
-
-# Inject memory context into a system prompt
-system_prompt = session.bootstrap()
-
-# Write a memory
-session.execute_tool("memory_write", content="User prefers concise answers.", tier="long_term")
-
-# Search memory
-result = session.execute_tool("memory_search", query="communication preferences")
-```
-
-For full integration examples with OpenAI and Anthropic, configuration reference, and environment variables, see [DOCS.md](DOCS.md).
+- **Hybrid search** - BM25 keyword scoring and vector cosine similarity are combined and re-ranked in a single query, so recall is accurate even when the wording differs from what was stored.
+- **Zero-setup mode** - with `provider: none`, OpenMemory runs entirely on SQLite with FTS5. No API key, no GPU, no extra dependencies.
+- **Pluggable embedding providers** - swap between a local sentence-transformers model, any OpenAI-compatible endpoint (OpenAI, Ollama, LM Studio, LiteLLM), or BM25-only without touching your agent code.
+- **Workspace isolation** - each project, user, or agent gets its own directory-backed workspace with independent memory, relations, and daily logs.
+- **Relation graph with semantic deduplication** - the graph automatically suppresses near-duplicate triples using configurable cosine similarity thresholding.
+- **Compaction hooks** - when a session approaches the context window limit, OpenMemory emits structured prompts that instruct the agent to flush important facts to storage before the window rolls over.
 
 ---
 
 ## Tools
 
-OpenMemory exposes 6 tools as JSON schemas for function calling — `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, and `memory_relate`. Use `session.execute_tool(name, **kwargs)` to call them directly, or pass `ALL_TOOLS` to your model framework.
+OpenMemory exposes 6 tools as JSON schemas for function calling - `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, and `memory_relate`. Use `session.execute_tool(name, **kwargs)` to call them directly, or pass `ALL_TOOLS` to your model framework.
 
-For the full tools reference including parameters, tiers, and source filters, see [DOCS.md — Tools Reference](DOCS.md#tools-reference).
+For the full tools reference including parameters, tiers, and source filters, see [DOCS.md - Tools Reference](DOCS.md#tools-reference).
 
 ---
 
@@ -172,33 +105,34 @@ For the full tools reference including parameters, tiers, and source filters, se
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    AI Agent / LLM                    │
-│         (OpenAI, Anthropic, or any framework)        │
+│                    AI Agent / LLM                   │
+│         (OpenAI, Anthropic, or any framework)       │
 └────────────────────┬────────────────────────────────┘
                      │  tool calls + bootstrap prompt
                      ▼
 ┌─────────────────────────────────────────────────────┐
-│                  MemorySession                       │
-│   workspace  ·  index  ·  provider  ·  config        │
+│                  MemorySession                      │
+│   workspace  ·  index  ·  provider  ·  config       │
 └───────┬──────────────┬──────────────────────────────┘
         │              │
         ▼              ▼
 ┌───────────┐  ┌───────────────────────────────────┐
-│ Workspace │  │          MemoryIndex               │
-│           │  │  SQLite + FTS5 (BM25 keyword)      │
-│ MEMORY.md │  │  + optional vector store           │
-│ USER.md   │  │  hybrid re-ranking + MMR            │
+│ Workspace │  │          MemoryIndex              │
+│           │  │  SQLite + FTS5 (BM25 keyword)     │
+│ MEMORY.md │  │  + optional vector store          │
+│ USER.md   │  │  hybrid re-ranking + MMR          │
 │ AGENTS.md │  └──────────────┬────────────────────┘
 │ RELATIONS │                 │
-│ daily/    │  ┌──────────────▼────────────────────┐
-└───────────┘  │       EmbeddingProvider            │
-               │  NullProvider  (BM25-only)         │
-               │  SentenceTransformer  (local)      │
-               │  OpenAICompatible  (HTTP API)      │
+│ daily/    │                 ▼
+└───────────┘  ┌───────────────────────────────────┐
+               │       EmbeddingProvider           │
+               │  NullProvider  (BM25-only)        │
+               │  SentenceTransformer  (local)     │
+               │  OpenAICompatible  (HTTP API)     │
                └───────────────────────────────────┘
 ```
 
-For a detailed breakdown of each layer, the full data flow, and the tech stack, see [DOCS.md — Architecture](DOCS.md#architecture).
+For a detailed breakdown of each layer, the full data flow, and the tech stack, see [DOCS.md - Architecture](DOCS.md#architecture).
 
 ---
 
@@ -228,7 +162,7 @@ uv sync --extra dev --extra local
 ### Running the Test Suite
 
 ```bash
-# Unit tests only (no embedding provider required — fast)
+# Unit tests only (no embedding provider required - fast)
 pytest tests/ -m "not embeddings"
 
 # Integration tests (requires a configured embedding provider)
@@ -247,11 +181,11 @@ Integration tests are marked with `@pytest.mark.embeddings` and require an embed
 
 1. Fork the repository and create a branch: `git checkout -b feature/your-feature-name`
 2. Make your changes with accompanying tests.
-3. Run `pytest tests/ -m "not embeddings"` — all unit tests must pass.
+3. Run `pytest tests/ -m "not embeddings"` - all unit tests must pass.
 4. Open a pull request with a clear description of what changes and why.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
