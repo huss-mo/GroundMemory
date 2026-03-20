@@ -15,7 +15,8 @@ dependencies = [
     "tiktoken>=0.7",
     "rich>=13.0",
     "PyYAML>=6.0",
-    "mcp>=1.0",
+    "mcp[cli]>=1.6",
+    "uvicorn>=0.29",
 ]
 
 [project.optional-dependencies]

@@ -20,6 +20,7 @@ WORKDIR /app
 
 # Copy project metadata first for better layer caching
 COPY pyproject.toml ./
+COPY README.md ./
 COPY openmemory/ ./openmemory/
 
 # Install the package (and optional extras if requested via build arg)
