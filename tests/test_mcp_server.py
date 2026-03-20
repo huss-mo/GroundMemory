@@ -398,33 +398,109 @@ class TestMcpMemoryRelate:
 
 
 # ---------------------------------------------------------------------------
+# memory_bootstrap (tool)
+# ---------------------------------------------------------------------------
+
+
+class TestMcpMemoryBootstrap:
+    def test_bootstrap_returns_string(self, mock_session):
+        mock_session.bootstrap.return_value = "## Your Memory Context\n\n### Long-Term Memory\n\nsome facts"
+        out = mcp_mod.memory_bootstrap()
+        assert isinstance(out, str)
+        assert "Memory Context" in out
+
+    def test_bootstrap_calls_session_bootstrap(self, mock_session):
+        mock_session.bootstrap.return_value = "context"
+        mcp_mod.memory_bootstrap()
+        mock_session.bootstrap.assert_called_once()
+
+    def test_bootstrap_returns_placeholder_when_empty(self, mock_session):
+        mock_session.bootstrap.return_value = ""
+        out = mcp_mod.memory_bootstrap()
+        assert "No memory context yet" in out
+
+    def test_bootstrap_returns_placeholder_when_none(self, mock_session):
+        mock_session.bootstrap.return_value = None
+        out = mcp_mod.memory_bootstrap()
+        assert "No memory context yet" in out
+
+    def test_bootstrap_full_content_returned_verbatim(self, mock_session):
+        content = "<!-- OpenMemory bootstrap start -->\n## Your Memory Context\nfacts\n<!-- OpenMemory bootstrap end -->"
+        mock_session.bootstrap.return_value = content
+        out = mcp_mod.memory_bootstrap()
+        assert out == content
+
+
+# ---------------------------------------------------------------------------
+# memory_bootstrap_prompt (MCP Prompt)
+# ---------------------------------------------------------------------------
+
+
+class TestMcpMemoryBootstrapPrompt:
+    def test_prompt_returns_string(self, mock_session):
+        mock_session.bootstrap.return_value = "## Your Memory Context\n\nsome facts"
+        out = mcp_mod.memory_bootstrap_prompt()
+        assert isinstance(out, str)
+
+    def test_prompt_calls_session_bootstrap(self, mock_session):
+        mock_session.bootstrap.return_value = "context"
+        mcp_mod.memory_bootstrap_prompt()
+        mock_session.bootstrap.assert_called_once()
+
+    def test_prompt_returns_placeholder_when_empty(self, mock_session):
+        mock_session.bootstrap.return_value = ""
+        out = mcp_mod.memory_bootstrap_prompt()
+        assert "No memory context yet" in out
+
+    def test_prompt_content_matches_tool_content(self, mock_session):
+        """Tool and Prompt must return identical content for the same workspace state."""
+        content = "## Your Memory Context\n\nsome facts"
+        mock_session.bootstrap.return_value = content
+        tool_out = mcp_mod.memory_bootstrap()
+        # Reset call count, return same value
+        mock_session.bootstrap.return_value = content
+        prompt_out = mcp_mod.memory_bootstrap_prompt()
+        assert tool_out == prompt_out
+
+
+# ---------------------------------------------------------------------------
 # Tool name registration (FastMCP wiring)
 # ---------------------------------------------------------------------------
 
 
 class TestMcpToolRegistration:
-    """Verify that FastMCP has all 6 tools registered under their expected names."""
+    """Verify that FastMCP has all 7 tools and 1 prompt registered."""
 
-    def _get_registered_names(self):
+    def _get_registered_tool_names(self):
         """Extract tool names from the FastMCP instance."""
-        # FastMCP stores tools in _tool_manager or similar; access via list_tools()
-        # We inspect the internal registry without making HTTP calls.
         try:
-            # mcp.list_tools() returns a coroutine in newer versions
             import asyncio
             tools = asyncio.get_event_loop().run_until_complete(mcp_mod.mcp.list_tools())
             return {t.name for t in tools}
         except Exception:
-            # Fallback: check the tool manager dict directly
             mgr = getattr(mcp_mod.mcp, "_tool_manager", None) or getattr(mcp_mod.mcp, "tool_manager", None)
             if mgr is not None:
                 tools = getattr(mgr, "_tools", None) or getattr(mgr, "tools", {})
                 return set(tools.keys())
             return set()
 
-    def test_all_six_tools_registered(self):
-        names = self._get_registered_names()
+    def _get_registered_prompt_names(self):
+        """Extract prompt names from the FastMCP instance."""
+        try:
+            import asyncio
+            prompts = asyncio.get_event_loop().run_until_complete(mcp_mod.mcp.list_prompts())
+            return {p.name for p in prompts}
+        except Exception:
+            mgr = getattr(mcp_mod.mcp, "_prompt_manager", None) or getattr(mcp_mod.mcp, "prompt_manager", None)
+            if mgr is not None:
+                prompts = getattr(mgr, "_prompts", None) or getattr(mgr, "prompts", {})
+                return set(prompts.keys())
+            return set()
+
+    def test_all_seven_tools_registered(self):
+        names = self._get_registered_tool_names()
         expected = {
+            "memory_bootstrap",
             "memory_write",
             "memory_search",
             "memory_get",
@@ -433,3 +509,7 @@ class TestMcpToolRegistration:
             "memory_relate",
         }
         assert expected.issubset(names), f"Missing tools: {expected - names}"
+
+    def test_bootstrap_prompt_registered(self):
+        names = self._get_registered_prompt_names()
+        assert "memory_bootstrap_prompt" in names, f"Prompt not registered. Found: {names}"
