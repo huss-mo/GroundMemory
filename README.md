@@ -2,7 +2,7 @@
 
 # OpenMemory
 
-**Persistent, semantic memory for AI agents - local-first, framework-agnostic, production-ready.**
+**Persistent, semantic memory for AI agents — local-first, framework-agnostic, production-ready.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-108%20passing-brightgreen.svg)](#running-the-test-suite)
@@ -13,17 +13,62 @@
 
 ---
 
-## The Problem
+Add persistent memory to any MCP-compatible agent in three steps.
 
-As soon as a conversation ends, your agent forgets everything. It asks the same clarifying questions it asked last week. It proposes approaches it already decided against. It loses track of user preferences, ongoing projects, and its own past reasoning. This is not a limitation of the model — it is a missing infrastructure layer.
+**1. Install**
 
-OpenMemory is that layer.
+```bash
+git clone https://github.com/huss-mo/OpenMemory
+cd openmemory
+pip install -e .
+```
+
+**2. Start the memory server**
+
+```bash
+OPENMEMORY_WORKSPACE=my-project openmemory-mcp
+# → listening on http://0.0.0.0:4242/mcp
+```
+
+**3. Point your client at it**
+
+```json
+{
+  "mcpServers": {
+    "openmemory": {
+      "url": "http://localhost:4242/mcp"
+    }
+  }
+}
+```
+
+Your agent now has structured, searchable memory that persists across every session — long-term facts, a user profile, agent instructions, an entity graph, and daily logs — all managed automatically. No changes to your agent's code required.
+
+For embedding providers, multiple workspaces, and the Python API, see [Installation & Configuration](#installation--configuration) below.
+
+---
+
+## What Becomes Possible
+
+Without memory, every session starts from zero. With OpenMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with.
+
+**A coding assistant that doesn't repeat itself.** It remembers your stack, your preferred patterns, the architectural decisions you've already made, and the approaches you've already ruled out — so it stops re-suggesting the same things.
+
+**A personal assistant that builds a profile over time.** After a few weeks it knows your schedule, your priorities, the people you work with, and how you like to communicate. It doesn't need to ask.
+
+**A research agent that constructs a knowledge graph.** As it reads papers and sources across many sessions, it records entities, relationships, and findings. Searches later return relevant facts regardless of how they were originally worded.
+
+**A customer-facing agent with per-user memory.** Each user gets their own workspace — preferences, history, ongoing context — giving every interaction a personalised, stateful feel without any custom infrastructure.
+
+**A long-running autonomous agent that survives context limits.** When the context window fills, compaction hooks instruct the agent to flush important facts to memory before the window rolls over. The next session picks up exactly where the last one left off.
 
 ---
 
 ## What OpenMemory Does
 
-OpenMemory gives your agent a structured, searchable memory that persists across sessions. Memory is split into distinct tiers, each with a clear purpose:
+Most agents forget everything the moment a conversation ends. They ask the same questions again, repeat the same mistakes, and lose track of the user's preferences and ongoing work. This is not a model limitation — it is missing infrastructure.
+
+OpenMemory provides that infrastructure. It gives your agent a structured, searchable memory that persists across sessions, organised into distinct tiers with clear ownership:
 
 | File | Purpose |
 |---|---|
@@ -46,11 +91,9 @@ Additional capabilities:
 
 ---
 
-## Getting Started
+## Installation & Configuration
 
 ### Installation
-
-OpenMemory is not yet published to PyPI. Install directly from source:
 
 ```bash
 git clone https://github.com/huss-mo/OpenMemory
@@ -67,20 +110,20 @@ uv sync
 uv sync --extra local   # for sentence-transformers support
 ```
 
-### Quickstart
+### MCP Server
 
-#### Option 1 — MCP Server (recommended)
-
-OpenMemory can run as an HTTP MCP server, making all 6 memory tools available to any MCP-compatible client (Claude Desktop, Cursor, Cline, or any custom agent).
-
-**Start the server:**
+The recommended integration. Run OpenMemory as an HTTP server and connect any MCP-compatible client — Claude Desktop, Cursor, Cline, or a custom agent — without touching your agent's code.
 
 ```bash
+# Start with a named workspace
 OPENMEMORY_WORKSPACE=my-project openmemory-mcp
 # → listening on http://0.0.0.0:4242/mcp
+
+# Custom host and port
+OPENMEMORY_MCP_HOST=127.0.0.1 OPENMEMORY_MCP_PORT=9000 openmemory-mcp
 ```
 
-**Point your client at it:**
+Add to your client's MCP config:
 
 ```json
 {
@@ -92,52 +135,36 @@ OPENMEMORY_WORKSPACE=my-project openmemory-mcp
 }
 ```
 
-For environment variables, multi-workspace setup, and per-client config file paths, see the [MCP Server section in DOCS.md](DOCS.md#mcp-server).
+For client-specific config file paths, environment variables, and multi-workspace setup, see the [MCP Server section in DOCS.md](DOCS.md#mcp-server).
 
----
+### Python API
 
-#### Option 2 — Python API
+For direct integration with OpenAI, Anthropic, or any custom agent loop:
 
 ```python
 from openmemory.session import MemorySession
 
 session = MemorySession.create("my-project")
 
+# Inject memory context into a system prompt
+system_prompt = session.bootstrap()
+
 # Write a memory
 session.execute_tool("memory_write", content="User prefers concise answers.", tier="long_term")
 
 # Search memory
 result = session.execute_tool("memory_search", query="communication preferences")
-for item in result["data"]["results"]:
-    print(item["content"])
-
-# Inject memory context into a system prompt
-system_prompt = session.bootstrap()
 ```
 
 For full integration examples with OpenAI and Anthropic, configuration reference, and environment variables, see [DOCS.md](DOCS.md).
 
 ---
 
-## Tools Reference
+## Tools
 
-These tools are registered as JSON schemas for function calling. Use `session.execute_tool(name, **kwargs)` to call them programmatically, or pass `ALL_TOOLS` to your model framework directly.
+OpenMemory exposes 6 tools as JSON schemas for function calling — `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, and `memory_relate`. Use `session.execute_tool(name, **kwargs)` to call them directly, or pass `ALL_TOOLS` to your model framework.
 
-| Tool | Description | Required Parameters |
-|---|---|---|
-| `memory_write` | Write a memory to long-term storage (`MEMORY.md`) or today's daily log | `content` |
-| `memory_search` | Hybrid semantic + keyword search across all memory tiers | `query` |
-| `memory_get` | Retrieve a specific memory chunk by ID | `chunk_id` |
-| `memory_list` | List memory chunks with optional source filter and pagination | — |
-| `memory_delete` | Delete a specific memory chunk by ID | `chunk_id` |
-| `memory_relate` | Record a typed entity relationship (`subject → predicate → object`) | `subject`, `predicate`, `object` |
-
-**`memory_write` tiers:**
-- `long_term` — appended to `MEMORY.md`, persists across all sessions
-- `daily` — appended to `daily/YYYY-MM-DD.md`, date-stamped journal
-
-**`memory_search` source filters:**
-- `long_term`, `daily`, `relations`, `user`, `agents` — restrict to a specific tier, or omit to search all
+For the full tools reference including parameters, tiers, and source filters, see [DOCS.md — Tools Reference](DOCS.md#tools-reference).
 
 ---
 
@@ -171,11 +198,7 @@ These tools are registered as JSON schemas for function calling. Use `session.ex
                └───────────────────────────────────┘
 ```
 
-**Memory files** live in the workspace directory as plain Markdown. They are human-readable and can be edited directly. The SQLite index is rebuilt automatically when files change.
-
-**Bootstrap injection** assembles `MEMORY.md`, `USER.md`, `AGENTS.md`, `RELATIONS.md`, and recent daily logs into a single context block injected at session start.
-
-**Compaction hooks** detect when the context window is filling up and emit structured prompts that instruct the agent to flush the conversation's important facts to storage before the window is summarized.
+For a detailed breakdown of each layer, the full data flow, and the tech stack, see [DOCS.md — Architecture](DOCS.md#architecture).
 
 ---
 

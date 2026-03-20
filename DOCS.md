@@ -11,13 +11,13 @@ For a project overview, see [README.md](README.md).
   - [Table of Contents](#table-of-contents)
   - [MCP Server](#mcp-server)
     - [Running the Server](#running-the-server)
-    - [Environment Variables](#environment-variables)
     - [Client Configuration](#client-configuration)
     - [Available MCP Tools](#available-mcp-tools)
   - [Connecting to Your AI Agent](#connecting-to-your-ai-agent)
     - [OpenAI](#openai)
     - [Anthropic](#anthropic)
   - [Python API Example](#python-api-example)
+  - [Tools Reference](#tools-reference)
   - [Architecture](#architecture)
     - [Architectural Layers](#architectural-layers)
       - [1. Workspace (`openmemory/core/workspace.py`)](#1-workspace-openmemorycoreworkspacepy)
@@ -38,7 +38,7 @@ For a project overview, see [README.md](README.md).
   - [Configuration](#configuration)
     - [Minimum Config](#minimum-config)
     - [openmemory.yaml Reference](#openmemoryyaml-reference)
-    - [Environment Variables](#environment-variables-1)
+    - [Environment Variables](#environment-variables)
 
 ---
 
@@ -64,16 +64,6 @@ OPENMEMORY_MCP_HOST=127.0.0.1 OPENMEMORY_MCP_PORT=9000 openmemory-mcp
 ```
 
 The server starts at `http://<host>:<port>/mcp` using the `streamable-http` MCP transport.
-
-### Environment Variables
-
-| Variable | Description | Default |
-|---|---|---|
-| `OPENMEMORY_WORKSPACE` | Workspace name (directory under `OPENMEMORY_ROOT_DIR`) | `default` |
-| `OPENMEMORY_MCP_HOST` | Host address the server binds to | `0.0.0.0` |
-| `OPENMEMORY_MCP_PORT` | TCP port the server listens on | `4242` |
-
-All standard `OPENMEMORY_*` configuration variables (embedding provider, search settings, etc.) apply as usual — see [Environment Variables](#environment-variables) below.
 
 ### Client Configuration
 
@@ -115,7 +105,7 @@ Once connected, the client has access to all 6 memory tools:
 
 ## Connecting to Your AI Agent
 
-OpenMemory exposes standard JSON schemas compatible with OpenAI function calling and Anthropic tool use. The `ALL_TOOLS` export is a list of `(schema, run)` pairs — the schemas go to the model, the run functions handle dispatch.
+OpenMemory exposes standard JSON schemas for function calling, compatible with OpenAI and Anthropic out of the box. The primary export is `ALL_TOOLS` — a list of `(schema, run)` pairs. Pass the schemas to the model so it knows what tools are available; when the model calls a tool, dispatch it back through the paired `run` function (or use `session.execute_tool` directly). Both paths are shown below.
 
 ### OpenAI
 
@@ -210,6 +200,39 @@ system_prompt = session.bootstrap()
 ```
 
 `MemorySession.create("my-project")` creates a workspace directory at `~/.openmemory/my-project/` on first run, seeding all required files. Subsequent calls reopen the same workspace.
+
+---
+
+## Tools Reference
+
+Use `session.execute_tool(name, **kwargs)` to call tools programmatically, or pass `ALL_TOOLS` to your model framework directly.
+
+| Tool | Description | Required Parameters |
+|---|---|---|
+| `memory_write` | Write a memory to long-term storage (`MEMORY.md`) or today's daily log | `content` |
+| `memory_search` | Hybrid semantic + keyword search across all memory tiers | `query` |
+| `memory_get` | Retrieve a specific memory chunk by ID | `chunk_id` |
+| `memory_list` | List memory chunks with optional source filter and pagination | — |
+| `memory_delete` | Delete a specific memory chunk by ID | `chunk_id` |
+| `memory_relate` | Record a typed entity relationship (`subject → predicate → object`) | `subject`, `predicate`, `object` |
+
+**`memory_write` tiers** (`tier` parameter):
+
+| Value | Written to | Behaviour |
+|---|---|---|
+| `long_term` | `MEMORY.md` | Appended permanently; survives all sessions |
+| `daily` | `daily/YYYY-MM-DD.md` | Appended to today's date-stamped log |
+
+**`memory_search` source filters** (`source` parameter):
+
+| Value | Searches |
+|---|---|
+| *(omitted)* | All tiers |
+| `long_term` | `MEMORY.md` only |
+| `daily` | All daily logs |
+| `relations` | `RELATIONS.md` + SQLite graph |
+| `user` | `USER.md` only |
+| `agents` | `AGENTS.md` only |
 
 ---
 
@@ -381,21 +404,7 @@ Next session: session.bootstrap() reloads persisted facts
 
 ### Minimum Config
 
-No configuration file is required. With no config, OpenMemory uses BM25-only search backed by SQLite — no API key, no GPU, no extra packages:
-
-```python
-from openmemory.session import MemorySession
-
-session = MemorySession.create()  # stores in ~/.openmemory/default/
-```
-
-To make this explicit in a config file:
-
-```yaml
-# openmemory.yaml
-embedding:
-  provider: none
-```
+No configuration file is required. With no config, OpenMemory uses BM25-only search backed by SQLite — no API key, no GPU, no extra packages.
 
 ### openmemory.yaml Reference
 
@@ -528,6 +537,15 @@ compaction:
   # Messages injected at the flush turn (override to customise wording)
   # system_prompt: "Session nearing compaction. Store durable memories now."
   # user_prompt: "Review the conversation and write lasting facts to memory. Reply DONE when finished."
+
+# ---------------------------------------------------------------------------
+# MCP server (openmemory-mcp command)
+# ---------------------------------------------------------------------------
+# mcp:
+#   # Host address the MCP server binds to
+#   host: 0.0.0.0
+#   # TCP port the MCP server listens on
+#   port: 4242
 ```
 
 
@@ -578,10 +596,15 @@ All settings are available as environment variables using the `OPENMEMORY_` pref
 | `OPENMEMORY_ROOT_DIR` | Base directory for all workspaces | `~/.openmemory` |
 | `OPENMEMORY_WORKSPACE` | Default workspace name | `default` |
 
+**MCP Server**
+
+| Variable | Description | Default |
+|---|---|---|
+| `OPENMEMORY_MCP_HOST` | Host address the server binds to | `0.0.0.0` |
+| `OPENMEMORY_MCP_PORT` | TCP port the server listens on | `4242` |
+
 **Configuration priority (highest wins):**
 
 ```
 constructor kwargs  >  environment variables  >  .env file  >  openmemory.yaml  >  built-in defaults
 ```
-
-You can also use a `.env` file in your project root — all `OPENMEMORY_*` variables are picked up automatically.
