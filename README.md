@@ -95,7 +95,11 @@ Additional capabilities:
 
 ## Tools
 
-OpenMemory exposes 6 tools as JSON schemas for function calling - `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, and `memory_relate`. Use `session.execute_tool(name, **kwargs)` to call them directly, or pass `ALL_TOOLS` to your model framework.
+OpenMemory exposes 7 tools via MCP and the Python API: `memory_bootstrap`, `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, and `memory_relate`.
+
+**When using the MCP server**, instruct your agent to call `memory_bootstrap` at the start of every session before doing anything else. This loads the full memory context (MEMORY.md, USER.md, AGENTS.md, RELATIONS.md, daily logs) into the conversation. Clients that support the MCP Prompts primitive (Cline, Claude Desktop) can instead use the `memory_bootstrap_prompt` prompt from their Prompts panel.
+
+**When using the Python API**, call `session.bootstrap()` and pass the result as your system prompt — no tool call is needed.
 
 For the full tools reference including parameters, tiers, and source filters, see [DOCS.md - Tools Reference](DOCS.md#tools-reference).
 

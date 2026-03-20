@@ -17,6 +17,7 @@ For a project overview and quick start, see [README.md](README.md).
     - [Running the Server](#running-the-server)
     - [Client Configuration](#client-configuration)
     - [Available MCP Tools](#available-mcp-tools)
+    - [Bootstrap - Loading Memory at Session Start](#bootstrap---loading-memory-at-session-start)
   - [Connecting to Your AI Agent Using The Python API](#connecting-to-your-ai-agent-using-the-python-api)
     - [OpenAI](#openai)
     - [Anthropic](#anthropic)
@@ -226,16 +227,42 @@ Add the following to your client's MCP server configuration. The exact file path
 
 ### Available MCP Tools
 
-Once connected, the client has access to all 6 memory tools:
+Once connected, the client has access to 7 memory tools and 1 prompt:
 
 | Tool | Description |
 |---|---|
+| `memory_bootstrap` | **Call once at session start.** Returns the full memory context (MEMORY.md, USER.md, AGENTS.md, RELATIONS.md, daily logs) as a formatted string. |
 | `memory_write` | Store a memory in long-term storage (`MEMORY.md`) or today's daily log |
 | `memory_search` | Hybrid semantic + keyword search across all memory tiers |
 | `memory_get` | Read a slice of a workspace file by line range |
 | `memory_list` | List workspace files or preview a specific file |
 | `memory_delete` | Delete a line range from a workspace file |
 | `memory_relate` | Record a typed entity relationship (`subject → predicate → object`) |
+
+| Prompt | Description |
+|---|---|
+| `memory_bootstrap_prompt` | Same content as `memory_bootstrap`, exposed as an MCP Prompt for clients that support the Prompts primitive (Cline, Claude Desktop). Click it in your client's Prompts panel at session start instead of waiting for the agent to call the tool. |
+
+### Bootstrap - Loading Memory at Session Start
+
+OpenMemory's memory context (long-term facts, user profile, agent instructions, entity graph, daily logs) needs to be loaded explicitly at the start of each session. Two mechanisms are provided for different client types:
+
+**Tool-based bootstrap (all clients)**
+
+The `memory_bootstrap` tool works with every MCP client that supports tools, including n8n, Claude Desktop, Cursor, Cline, and any custom agent. Add an instruction to your agent's system prompt:
+
+```
+At the start of every session, call memory_bootstrap before doing anything else.
+Use the returned context as your background knowledge for the rest of the session.
+```
+
+For n8n, place this instruction in the AI Agent node's system prompt. The agent will call `memory_bootstrap` as its first action and treat the response as persistent context.
+
+**Prompt-based bootstrap (Cline, Claude Desktop)**
+
+Clients that support the MCP Prompts primitive (Cline, Claude Desktop) will show a `memory_bootstrap_prompt` entry in their Prompts panel. Click it at the start of a session to inject the memory context directly into the conversation - no agent tool call required.
+
+The content returned by both mechanisms is identical.
 
 ---
 

@@ -197,6 +197,60 @@ def memory_relate(
 
 
 # ---------------------------------------------------------------------------
+# Bootstrap
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def memory_bootstrap() -> str:
+    """Load the full memory context for this workspace into the conversation.
+
+    Call this tool **once at the very start of every session** before doing
+    anything else.  It assembles the contents of MEMORY.md (long-term facts),
+    USER.md (user profile), AGENTS.md (agent instructions), RELATIONS.md
+    (entity graph), and the last two daily logs into a single formatted
+    string that you should treat as persistent background context for the
+    rest of the session.
+
+    This is the MCP equivalent of the Python-API ``session.bootstrap()``
+    call.  MCP clients that do not support the Prompts primitive (e.g. n8n,
+    custom agents) should call this tool instead of - or in addition to -
+    the ``memory_bootstrap`` prompt.
+
+    Returns:
+        A Markdown-formatted system-prompt block, or an empty string if the
+        workspace has no memory files yet.
+    """
+    bootstrap_text = _get_session().bootstrap()
+    # Return a plain string; _unwrap is not used here because bootstrap never
+    # fails - an empty workspace simply returns an empty string.
+    return bootstrap_text or "(No memory context yet. Use memory_write to start building your memory.)"
+
+
+@mcp.prompt()
+def memory_bootstrap_prompt() -> str:
+    """Return the workspace memory context as an MCP Prompt.
+
+    This is the Prompts-primitive counterpart of the ``memory_bootstrap``
+    tool.  MCP clients that support the Prompts primitive (e.g. Cline,
+    Claude Desktop) can invoke this prompt at session start from their UI
+    to inject the full memory context into the conversation without
+    requiring the agent to call a tool first.
+
+    The content is identical to what ``memory_bootstrap`` returns - it
+    assembles MEMORY.md, USER.md, AGENTS.md, RELATIONS.md, and the last
+    two daily logs into a single formatted block, respecting the character
+    budgets configured in ``BootstrapConfig``.
+
+    Returns:
+        A Markdown-formatted memory context block ready to be prepended to
+        the system prompt, or a placeholder if the workspace is empty.
+    """
+    bootstrap_text = _get_session().bootstrap()
+    return bootstrap_text or "(No memory context yet. Use memory_write to start building your memory.)"
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
