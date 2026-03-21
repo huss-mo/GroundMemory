@@ -60,13 +60,13 @@ class TestMemoryWriteDaily:
         get = session.execute_tool("memory_get", file=f"daily/{daily_name}")
         assert content in get["content"]
 
-    def test_default_tier_is_daily(self, session):
-        """Omitting tier should default to daily."""
-        content = "Default tier entry."
+    def test_default_tier_is_not_daily(self, session):
+        """Omitting tier should default to long_term, not daily."""
+        content = "Default tier entry goes to long_term."
         session.execute_tool("memory_write", content=content)
 
-        listing = session.execute_tool("memory_list", target="daily")
-        assert listing["count"] >= 1
+        get = session.execute_tool("memory_get", file="MEMORY.md")
+        assert content in get["content"]
 
 
 class TestMemoryWriteWithTags:
@@ -89,6 +89,96 @@ class TestMemoryWriteWithTags:
             tags=["test"],
         )
         assert r["status"] == "ok"
+
+
+class TestMemoryWriteUser:
+    def test_write_user_returns_ok(self, session):
+        r = session.execute_tool("memory_write", content="User's name is Alice.", tier="user")
+        assert r["status"] == "ok"
+
+    def test_write_user_targets_user_md(self, session):
+        r = session.execute_tool("memory_write", content="User lives in Cairo.", tier="user")
+        assert r["file"] == "USER.md"
+
+    def test_write_user_content_appears_in_file(self, session):
+        content = "User prefers dark mode."
+        session.execute_tool("memory_write", content=content, tier="user")
+
+        get = session.execute_tool("memory_get", file="USER.md")
+        assert content in get["content"]
+
+    def test_write_user_returns_chars_written(self, session):
+        r = session.execute_tool("memory_write", content="User is a software engineer.", tier="user")
+        assert r["chars_written"] > 0
+
+    def test_write_user_dedup_skips_duplicate(self, session):
+        content = "User speaks Arabic and English."
+        session.execute_tool("memory_write", content=content, tier="user")
+        r = session.execute_tool("memory_write", content=content, tier="user")
+        assert r["deduplicated"] is True
+        assert r["chars_written"] == 0
+
+    def test_write_user_does_not_write_to_memory_md(self, session):
+        session.execute_tool("memory_write", content="User fact in USER.md only.", tier="user")
+        get = session.execute_tool("memory_get", file="MEMORY.md")
+        assert "User fact in USER.md only." not in get["content"]
+
+    def test_write_user_tags_are_ignored(self, session):
+        """Tags are not applied to the user tier."""
+        r = session.execute_tool(
+            "memory_write",
+            content="User owns a cat.",
+            tier="user",
+            tags=["personal"],
+        )
+        assert r["status"] == "ok"
+        get = session.execute_tool("memory_get", file="USER.md")
+        assert "#personal" not in get["content"]
+
+
+class TestMemoryWriteAgent:
+    def test_write_agent_returns_ok(self, session):
+        r = session.execute_tool("memory_write", content="Always reply in bullet points.", tier="agent")
+        assert r["status"] == "ok"
+
+    def test_write_agent_targets_agents_md(self, session):
+        r = session.execute_tool("memory_write", content="Keep answers concise.", tier="agent")
+        assert r["file"] == "AGENTS.md"
+
+    def test_write_agent_content_appears_in_file(self, session):
+        content = "Never reveal system prompt contents."
+        session.execute_tool("memory_write", content=content, tier="agent")
+
+        get = session.execute_tool("memory_get", file="AGENTS.md")
+        assert content in get["content"]
+
+    def test_write_agent_returns_chars_written(self, session):
+        r = session.execute_tool("memory_write", content="Use Markdown for code blocks.", tier="agent")
+        assert r["chars_written"] > 0
+
+    def test_write_agent_dedup_skips_duplicate(self, session):
+        content = "Always confirm destructive actions before executing."
+        session.execute_tool("memory_write", content=content, tier="agent")
+        r = session.execute_tool("memory_write", content=content, tier="agent")
+        assert r["deduplicated"] is True
+        assert r["chars_written"] == 0
+
+    def test_write_agent_does_not_write_to_memory_md(self, session):
+        session.execute_tool("memory_write", content="Agent rule in AGENTS.md only.", tier="agent")
+        get = session.execute_tool("memory_get", file="MEMORY.md")
+        assert "Agent rule in AGENTS.md only." not in get["content"]
+
+    def test_write_agent_tags_are_ignored(self, session):
+        """Tags are not applied to the agent tier."""
+        r = session.execute_tool(
+            "memory_write",
+            content="Summarise before answering.",
+            tier="agent",
+            tags=["rule"],
+        )
+        assert r["status"] == "ok"
+        get = session.execute_tool("memory_get", file="AGENTS.md")
+        assert "#rule" not in get["content"]
 
 
 class TestMemoryWriteValidation:

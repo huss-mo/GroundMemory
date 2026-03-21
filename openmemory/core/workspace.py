@@ -25,58 +25,38 @@ _DEFAULT_AGENTS_MD = """\
 # Agent Instructions
 
 ## Memory Guidelines
-- Search memory at the start of any task that might benefit from past context: `memory_search`
-- When the user states a preference, decision, or important fact, write it to memory: `memory_write`
-- Use tier "long_term" for durable facts and decisions
-- Use tier "daily" for running notes, task progress, and session context
-- Record relationships between people, teams, and systems with `memory_relate`
-- Before answering questions about people or organizations, check relations: `memory_search`
 
-## memory_relate — Few-Shot Examples
+### Choosing the right tier for `memory_write`
 
-Use `memory_relate` to capture directional facts about entities.
-Always use **snake_case** predicates and keep subjects/objects as concise nouns.
+| Tier | File | Use for |
+|------|------|---------|
+| `long_term` | MEMORY.md | Curated facts, decisions, project knowledge — anything that should persist indefinitely |
+| `daily` | daily/YYYY-MM-DD.md | Running session notes, task progress, short-lived context |
+| `user` | USER.md | Stable facts *about the user*: name, role, organisation, location, preferences |
+| `agent` | AGENTS.md | Behavioural rules for future sessions (e.g. "always search before answering") |
 
-### Good examples
+**Rules of thumb:**
+- When the user reveals something about themselves → `memory_write(tier="user")`
+- When the user states a preference or decision → `memory_write(tier="long_term")` or `memory_write(tier="user")` if it's personal
+- When you need to remember a session task → `memory_write(tier="daily")`
+- When a new behavioural rule is established → `memory_write(tier="agent")`
+
+### Search before answering
+- At the start of any task that might benefit from past context, call `memory_search`
+- Before answering questions about people or organisations, check relations too
+
+### Recording relationships
+Use `memory_relate` for directional facts between entities. Always use **snake_case** predicates.
 
 ```
-memory_relate(subject="Alice", predicate="works_at", object="Acme Corp",
-              note="joined as senior engineer, March 2026")
-
+memory_relate(subject="Alice", predicate="works_at", object="Acme Corp")
 memory_relate(subject="Auth Service", predicate="owned_by", object="Platform Team")
-
-memory_relate(subject="Project Phoenix", predicate="depends_on", object="Auth Service")
-
-memory_relate(subject="Bob", predicate="manages", object="Alice",
-              note="Bob is Alice's engineering manager")
-
-memory_relate(subject="Carol", predicate="prefers", object="dark mode",
-              note="user preference stated in session")
-
-memory_relate(subject="data-pipeline", predicate="part_of", object="Analytics Platform")
-
-memory_relate(subject="PostgreSQL", predicate="used_by", object="Auth Service",
-              note="primary datastore")
+memory_relate(subject="Bob", predicate="manages", object="Alice")
 ```
 
-### Avoid
-
-```
-# Too verbose — predicate should be a short snake_case verb phrase
-memory_relate(subject="Alice", predicate="is an employee of the company", object="Acme Corp")
-
-# Free-text predicate — use snake_case
-memory_relate(subject="Bob", predicate="Is Manager Of", object="Alice")
-```
-
-### When to relate vs. write
-
-| Situation | Tool |
-|-----------|------|
-| Durable fact about a person or system | `memory_relate` |
-| Preference, decision, or free-form note | `memory_write` |
-| Session task progress | `memory_write` (tier="daily") |
-| Structural org/system dependency | `memory_relate` |
+When to relate vs. write:
+- Structural fact about people, teams, or systems → `memory_relate`
+- Free-form preference, decision, or note → `memory_write`
 """
 
 _DEFAULT_RELATIONS_MD = """\
@@ -179,6 +159,10 @@ class Workspace:
         files: list[Path] = []
         if self.memory_file.exists():
             files.append(self.memory_file)
+        if self.user_file.exists():
+            files.append(self.user_file)
+        if self.agents_file.exists():
+            files.append(self.agents_file)
         if self.relations_file.exists():
             files.append(self.relations_file)
         if self.daily_dir.exists():

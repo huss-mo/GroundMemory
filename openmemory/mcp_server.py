@@ -67,12 +67,24 @@ def memory_write(
     tier: str = "long_term",
     tags: list[str] | None = None,
 ) -> str:
-    """Write a memory to persistent storage.
+    """Write a memory to persistent storage. Choose the tier carefully:
+
+    - "long_term" → MEMORY.md. Curated facts, decisions, and preferences that
+      should persist indefinitely. Use for general knowledge about the world,
+      project decisions, or anything that doesn't fit a narrower tier.
+    - "daily"     → daily/YYYY-MM-DD.md. Running session notes, task progress,
+      and short-lived context. Auto-dated; not carried across days.
+    - "user"      → USER.md. Stable facts *about the user*: their name, role,
+      organisation, location, communication style, and stated preferences.
+      Use this whenever the user reveals something about themselves.
+    - "agent"     → AGENTS.md. Behavioural rules or instructions that should
+      govern *how the agent operates* in future sessions (e.g. "always search
+      memory before answering", "prefer bullet points over prose").
 
     Args:
-        content: The text to store.
-        tier: Storage tier — "long_term" (MEMORY.md) or "daily" (today's log).
-        tags: Optional list of string tags to attach to the memory.
+        content: The text to store. Be concise and specific.
+        tier: One of "long_term", "daily", "user", or "agent" (see above).
+        tags: Optional list of string tags (applied to long_term and daily only).
     """
     return _unwrap(_get_session().execute_tool("memory_write", content=content, tier=tier, tags=tags))
 

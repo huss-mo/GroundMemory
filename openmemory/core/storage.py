@@ -107,6 +107,76 @@ def write_long_term(workspace: Workspace, content: str) -> dict:
     }
 
 
+def write_user(workspace: Workspace, content: str) -> dict:
+    """
+    Append *content* to USER.md under a timestamped section header.
+
+    Deduplication: skips write if the exact content body is already present.
+
+    Returns metadata about the write.
+    """
+    path = workspace.user_file
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    body = content.strip()
+    entry = f"\n## {timestamp}\n\n{body}\n"
+
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    if body and body in existing:
+        return {
+            "file": str(path.relative_to(workspace.path)),
+            "tier": "user",
+            "timestamp": timestamp,
+            "chars_written": 0,
+            "deduplicated": True,
+        }
+
+    _atomic_write(path, existing + entry)
+
+    return {
+        "file": str(path.relative_to(workspace.path)),
+        "tier": "user",
+        "timestamp": timestamp,
+        "chars_written": len(entry),
+        "deduplicated": False,
+    }
+
+
+def write_agents(workspace: Workspace, content: str) -> dict:
+    """
+    Append *content* to AGENTS.md under a timestamped section header.
+
+    Deduplication: skips write if the exact content body is already present.
+
+    Returns metadata about the write.
+    """
+    path = workspace.agents_file
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    body = content.strip()
+    entry = f"\n## {timestamp}\n\n{body}\n"
+
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    if body and body in existing:
+        return {
+            "file": str(path.relative_to(workspace.path)),
+            "tier": "agent",
+            "timestamp": timestamp,
+            "chars_written": 0,
+            "deduplicated": True,
+        }
+
+    _atomic_write(path, existing + entry)
+
+    return {
+        "file": str(path.relative_to(workspace.path)),
+        "tier": "agent",
+        "timestamp": timestamp,
+        "chars_written": len(entry),
+        "deduplicated": False,
+    }
+
+
 def write_daily(workspace: Workspace, content: str, day: Optional[date] = None) -> dict:
     """
     Append *content* to today's (or *day*'s) daily log.

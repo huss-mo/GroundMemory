@@ -15,9 +15,11 @@ if TYPE_CHECKING:
 SCHEMA = {
     "name": "memory_write",
     "description": (
-        "Write a memory to persistent storage. "
-        "Use tier='long_term' for facts, decisions, and preferences that should persist across sessions. "
-        "Use tier='daily' for running notes, task progress, and session context."
+        "Write a memory to persistent storage. Choose the tier carefully:\n"
+        "  'long_term' — curated facts, decisions, and preferences that should persist forever (MEMORY.md).\n"
+        "  'daily'     — running notes, task progress, and session context (daily log, date-stamped).\n"
+        "  'user'      — stable facts about the user: name, role, location, preferences (USER.md).\n"
+        "  'agent'     — instructions or rules that should govern future agent behaviour (AGENTS.md)."
     ),
     "parameters": {
         "type": "object",
@@ -28,17 +30,19 @@ SCHEMA = {
             },
             "tier": {
                 "type": "string",
-                "enum": ["long_term", "daily"],
+                "enum": ["long_term", "daily", "user", "agent"],
                 "description": (
-                    "'long_term' → written to MEMORY.md (persists forever). "
-                    "'daily' → written to today's daily log (date-stamped journal)."
+                    "'long_term' → MEMORY.md — curated facts and decisions.\n"
+                    "'daily'     → daily/YYYY-MM-DD.md — session notes and task progress.\n"
+                    "'user'      → USER.md — who the user is (name, role, preferences).\n"
+                    "'agent'     → AGENTS.md — behavioural rules for future agent sessions."
                 ),
-                "default": "daily",
+                "default": "long_term",
             },
             "tags": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Optional tags to categorize this memory (e.g. ['preference', 'project-x']).",
+                "description": "Optional tags to categorize this memory (e.g. ['preference', 'project-x']). Not applied to 'user' or 'agent' tiers.",
             },
         },
         "required": ["content"],
@@ -49,7 +53,7 @@ SCHEMA = {
 def run(
     session: "MemorySession",
     content: str,
-    tier: Literal["long_term", "daily"] = "daily",
+    tier: Literal["long_term", "daily", "user", "agent"] = "long_term",
     tags: Optional[list[str]] = None,
 ) -> dict:
     """
@@ -61,20 +65,31 @@ def run(
     if not content or not content.strip():
         return err("content cannot be empty")
 
-    # Optionally prepend tags as a Markdown label
-    body = content.strip()
-    if tags:
-        tag_str = " ".join(f"#{t}" for t in tags)
-        body = f"{tag_str}\n{body}"
-
     from openmemory.core import storage, sync
 
-    if tier == "long_term":
-        result = storage.write_long_term(session.workspace, body)
-        sync.sync_file(session.workspace.memory_file, session.index, session.provider, session.config.chunking)
+    if tier in ("user", "agent"):
+        # USER.md and AGENTS.md store structured facts — tags are not applied
+        # to keep the files clean and readable.
+        body = content.strip()
+        if tier == "user":
+            result = storage.write_user(session.workspace, body)
+            sync.sync_file(session.workspace.user_file, session.index, session.provider, session.config.chunking)
+        else:
+            result = storage.write_agents(session.workspace, body)
+            sync.sync_file(session.workspace.agents_file, session.index, session.provider, session.config.chunking)
     else:
-        result = storage.write_daily(session.workspace, body)
-        daily_path = session.workspace.daily_file()
-        sync.sync_file(daily_path, session.index, session.provider, session.config.chunking)
+        # Optionally prepend tags as a Markdown label for long_term / daily
+        body = content.strip()
+        if tags:
+            tag_str = " ".join(f"#{t}" for t in tags)
+            body = f"{tag_str}\n{body}"
+
+        if tier == "long_term":
+            result = storage.write_long_term(session.workspace, body)
+            sync.sync_file(session.workspace.memory_file, session.index, session.provider, session.config.chunking)
+        else:
+            result = storage.write_daily(session.workspace, body)
+            daily_path = session.workspace.daily_file()
+            sync.sync_file(daily_path, session.index, session.provider, session.config.chunking)
 
     return ok(result)
