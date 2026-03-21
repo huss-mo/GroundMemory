@@ -46,6 +46,8 @@ openmemory-mcp
 
 Your agent now has structured, searchable memory that persists across every session - long-term facts, a user profile, agent instructions, an entity graph, and daily logs - all managed automatically. No changes to your agent's code required.
 
+This config works with any MCP-compatible client, including AI coding assistants (Cursor, Cline, Windsurf, Claude Code, Codex CLI), AI desktop clients (Claude Desktop, Open WebUI), and agent frameworks and platforms (LangChain, CrewAI, AutoGen, Google ADK, LiteLLM, n8n).
+
 For installation options, embedding providers, multiple workspaces, and the Python API, see [DOCS.md](DOCS.md).
 
 ---

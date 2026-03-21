@@ -205,16 +205,13 @@ The server starts at `http://<host>:<port>/mcp` using the `streamable-http` MCP 
 
 ### Client Configuration
 
-Add the following to your client's MCP server configuration. The exact file path depends on the client:
+OpenMemory speaks standard MCP over HTTP, so any MCP-compatible client works. The table below shows the most common categories and examples — the list is not exhaustive.
 
-| Client | Config file |
-|---|---|
-| Claude Desktop (macOS) | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Claude Desktop (Windows) | `%APPDATA%\Claude\claude_desktop_config.json` |
-| Cursor | `.cursor/mcp.json` in your project root, or `~/.cursor/mcp.json` globally |
-| Cline (VS Code) | MCP Servers panel → "Configure MCP Servers" |
-
-**Config snippet** (same format for all clients):
+| Category | Examples | How to connect |
+|---|---|---|
+| AI coding assistants | Cursor, Cline, Windsurf, Claude Code, Codex CLI | Add the JSON snippet below to your client's MCP server config |
+| AI desktop clients | Claude Desktop, Open WebUI | Add the JSON snippet below via the client's settings |
+| Agent frameworks & platforms | LangChain, LangGraph, CrewAI, AutoGen, Google ADK, LiteLLM, n8n | Python API (`MemorySession`) or point an HTTP tool node at the MCP endpoint |
 
 ```json
 {
@@ -225,6 +222,8 @@ Add the following to your client's MCP server configuration. The exact file path
   }
 }
 ```
+
+Clients that support the MCP Prompts primitive (such as Cline and Claude Desktop) will also show a `memory_bootstrap_prompt` entry in their Prompts panel — click it at session start to inject memory context without waiting for the agent to call the tool. For agent frameworks and platforms that use the Python API, see [Connecting to Your AI Agent Using The Python API](#connecting-to-your-ai-agent-using-the-python-api).
 
 ### Available MCP Tools
 
@@ -260,8 +259,6 @@ If you find that your agent does not call `memory_bootstrap` on its own, you can
 At the start of every session, call memory_bootstrap before doing anything else.
 Use the returned context as your background knowledge for the rest of the session.
 ```
-
-For n8n, place this fallback instruction in the AI Agent node's system prompt if the agent does not invoke `memory_bootstrap` automatically.
 
 **Prompt-based bootstrap (Cline, Claude Desktop)**
 
