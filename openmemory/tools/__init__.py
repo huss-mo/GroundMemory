@@ -8,6 +8,7 @@ from openmemory.tools import (
     memory_list,
     memory_delete,
     memory_relate,
+    memory_replace,
 )
 
 # Ordered list of all tools exposed by OpenMemory.
@@ -18,6 +19,8 @@ ALL_TOOLS: list[tuple[dict, object]] = [
     (memory_list.SCHEMA, memory_list.run),
     (memory_delete.SCHEMA, memory_delete.run),
     (memory_relate.SCHEMA, memory_relate.run),
+    (memory_replace.SCHEMA_TEXT, memory_replace.run_text),
+    (memory_replace.SCHEMA_LINES, memory_replace.run_lines),
 ]
 
 # Convenience lookup: tool_name → run function

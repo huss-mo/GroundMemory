@@ -228,6 +228,69 @@ def delete_lines(path: Path, start_line: int, end_line: int) -> dict:
     }
 
 
+def replace_text(path: Path, search: str, replacement: str) -> dict:
+    """
+    Replace the first occurrence of *search* in *path* with *replacement*.
+
+    Returns metadata including whether a match was found.
+    """
+    if not path.exists():
+        return {"error": f"File not found: {path}"}
+    if not search:
+        return {"error": "search text cannot be empty"}
+
+    content = path.read_text(encoding="utf-8")
+    if search not in content:
+        return {"error": f"Search text not found in {path.name}", "found": False}
+
+    new_content = content.replace(search, replacement, 1)
+    _atomic_write(path, new_content)
+
+    chars_delta = len(replacement) - len(search)
+    return {
+        "file": str(path),
+        "replaced": True,
+        "chars_delta": chars_delta,
+    }
+
+
+def replace_lines(path: Path, start_line: int, end_line: int, replacement: str) -> dict:
+    """
+    Replace lines [start_line, end_line] in *path* (1-indexed, inclusive) with
+    *replacement* text.
+
+    Returns metadata about the replacement.
+    """
+    if not path.exists():
+        return {"error": f"File not found: {path}"}
+
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    total = len(lines)
+
+    if start_line < 1 or start_line > total:
+        return {"error": f"start_line {start_line} out of range (file has {total} lines)"}
+    if end_line < start_line or end_line > total:
+        return {"error": f"end_line {end_line} out of range (start={start_line}, total={total})"}
+
+    # Convert to 0-indexed
+    s = start_line - 1
+    e = end_line  # exclusive upper bound for slice
+
+    replaced_preview = "".join(lines[s:e]).strip()
+    replacement_block = replacement if replacement.endswith("\n") else replacement + "\n"
+
+    new_lines = lines[:s] + [replacement_block] + lines[e:]
+    _atomic_write(path, "".join(new_lines))
+
+    chars_delta = len(replacement_block) - len("".join(lines[s:e]))
+    return {
+        "file": str(path),
+        "replaced_lines": f"{start_line}-{end_line}",
+        "replaced_preview": replaced_preview[:80],
+        "chars_delta": chars_delta,
+    }
+
+
 def list_daily_files(workspace: Workspace) -> list[str]:
     """Return sorted list of daily log filenames (newest first)."""
     if not workspace.daily_dir.exists():

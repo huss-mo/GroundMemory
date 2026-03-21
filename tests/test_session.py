@@ -79,8 +79,11 @@ class TestSessionCreation:
 class TestSessionToolRegistry:
     def test_all_six_tools_registered(self, session):
         from openmemory.tools import TOOL_RUNNERS
-        expected = {"memory_write", "memory_search", "memory_get",
-                    "memory_list", "memory_delete", "memory_relate"}
+        expected = {
+            "memory_write", "memory_search", "memory_get",
+            "memory_list", "memory_delete", "memory_relate",
+            "memory_replace_text", "memory_replace_lines",
+        }
         assert expected == set(TOOL_RUNNERS.keys())
 
     def test_unknown_tool_returns_error(self, session):
