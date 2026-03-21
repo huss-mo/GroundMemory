@@ -582,7 +582,7 @@ Next session: session.bootstrap() reloads persisted facts
 | Embeddings - remote | Any OpenAI-compatible HTTP endpoint via `httpx` (core dependency) |
 | HTTP client | `httpx` |
 | Packaging | `hatchling` build backend (`pyproject.toml`), installable via `uv` or `pip` |
-| Tests | `pytest` (108 tests: 99 unit, 9 integration) |
+| Tests | `pytest` |
 
 ---
 
