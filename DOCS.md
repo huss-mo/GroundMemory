@@ -247,22 +247,24 @@ Once connected, the client has access to 9 memory tools and 1 prompt:
 
 ### Bootstrap - Loading Memory at Session Start
 
-OpenMemory's memory context (long-term facts, user profile, agent instructions, entity graph, daily logs) needs to be loaded explicitly at the start of each session. Two mechanisms are provided for different client types:
+OpenMemory's memory context (long-term facts, user profile, agent instructions, entity graph, daily logs) needs to be loaded at the start of each session. Two mechanisms are provided:
 
 **Tool-based bootstrap (all clients)**
 
-The `memory_bootstrap` tool works with every MCP client that supports tools, including n8n, Claude Desktop, Cursor, Cline, and any custom agent. Add an instruction to your agent's system prompt:
+The `memory_bootstrap` tool description is written so that most agents call it automatically at the start of a session without any explicit instruction — the tool's description alone signals that it should be the first action taken. **No system-prompt changes are necessary in most cases.**
+
+If you find that your agent does not call `memory_bootstrap` on its own, you can add an explicit fallback instruction to the system prompt:
 
 ```
 At the start of every session, call memory_bootstrap before doing anything else.
 Use the returned context as your background knowledge for the rest of the session.
 ```
 
-For n8n, place this instruction in the AI Agent node's system prompt. The agent will call `memory_bootstrap` as its first action and treat the response as persistent context.
+For n8n, place this fallback instruction in the AI Agent node's system prompt if the agent does not invoke `memory_bootstrap` automatically.
 
 **Prompt-based bootstrap (Cline, Claude Desktop)**
 
-Clients that support the MCP Prompts primitive (Cline, Claude Desktop) will show a `memory_bootstrap_prompt` entry in their Prompts panel. Click it at the start of a session to inject the memory context directly into the conversation - no agent tool call required.
+Clients that support the MCP Prompts primitive (Cline, Claude Desktop) will show a `memory_bootstrap_prompt` entry in their Prompts panel. Click it at the start of a session to inject the memory context directly into the conversation - no agent tool call required. This is an alternative to the tool-based path, useful when you want to load memory context manually rather than waiting for the agent to call the tool.
 
 The content returned by both mechanisms is identical.
 
