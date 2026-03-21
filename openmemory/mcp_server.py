@@ -185,6 +185,7 @@ def memory_relate(
     subject: str,
     predicate: str,
     object: str,
+    supersedes: bool = False,
     note: str = "",
     source_file: str = "RELATIONS.md",
     confidence: float = 1.0,
@@ -198,6 +199,10 @@ def memory_relate(
         subject: The source entity (e.g. "Alice").
         predicate: The relationship type (e.g. "works_at").
         object: The target entity (e.g. "Acme Corp").
+        supersedes: When True, all existing (subject, predicate) triples are
+                    deleted from storage before the new triple is written.
+                    Use this when a relation replaces an outdated one
+                    (e.g. a person changed employer or city).
         note: Optional free-text annotation stored alongside the triple.
         source_file: Workspace-relative file where the triple is appended (default: RELATIONS.md).
         confidence: Confidence score between 0.0 and 1.0 (default: 1.0).
@@ -208,6 +213,7 @@ def memory_relate(
             subject=subject,
             predicate=predicate,
             object=object,
+            supersedes=supersedes,
             note=note,
             source_file=source_file,
             confidence=confidence,
