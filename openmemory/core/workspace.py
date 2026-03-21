@@ -57,6 +57,28 @@ memory_relate(subject="Bob", predicate="manages", object="Alice")
 When to relate vs. write:
 - Structural fact about people, teams, or systems → `memory_relate`
 - Free-form preference, decision, or note → `memory_write`
+
+### Editing RELATIONS.md directly
+
+You may read and edit RELATIONS.md using `memory_get`, `memory_replace_text`, `memory_replace_lines`, and `memory_delete`. **Every non-blank, non-header line must follow this exact format:**
+
+```
+- [Subject] --predicate--> [Object] (YYYY-MM-DD) — "optional note"
+```
+
+Examples of valid lines:
+```
+- [Alice] --leads--> [Auth Team] (2026-03-20)
+- [Alice] --leads--> [Auth Team] (2026-03-20) — "Assigned during sprint planning"
+- [Auth Service] --owned_by--> [Platform Team] (2026-03-20)
+```
+
+**Rules:**
+- Subject and Object are wrapped in square brackets: `[Name]`
+- Predicate uses **snake_case** and is wrapped with `--` and `-->`: `--predicate-->`
+- Date `(YYYY-MM-DD)` is required
+- Note (after `—`) is optional
+- Lines that do not match this format will be rejected when using replace tools
 """
 
 _DEFAULT_RELATIONS_MD = """\

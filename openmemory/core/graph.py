@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -22,6 +23,14 @@ from openmemory.core.storage import _atomic_write
 
 if TYPE_CHECKING:
     from openmemory.core.embeddings import EmbeddingProvider
+
+# Regex that matches a valid RELATIONS.md line.
+# Groups: subject, predicate, object, date (optional), note (optional)
+RELATION_LINE_RE = re.compile(
+    r"^\s*-\s+\[([^\]]+)\]\s+--([^->\s][^->]*?)-->\s+\[([^\]]+)\]"
+    r"(?:\s+\((\d{4}-\d{2}-\d{2})\))?"
+    r"(?:\s+[—–-]\s+\"?(.*?)\"?)?\s*$"
+)
 
 
 def _relation_id(subject: str, predicate: str, object_: str) -> str:
@@ -204,3 +213,69 @@ def format_relations_for_context(relations: list[dict]) -> str:
             line += f" — {r['note']}"
         lines.append(line)
     return "\n".join(lines)
+
+
+def parse_relations_from_file(relations_file: Path) -> list[dict]:
+    """
+    Parse all valid relation lines from RELATIONS.md.
+
+    Each returned dict has keys: subject, predicate, object, note (or None).
+    Lines that do not match the expected format are silently skipped.
+    """
+    if not relations_file.exists():
+        return []
+
+    results: list[dict] = []
+    for line in relations_file.read_text(encoding="utf-8").splitlines():
+        m = RELATION_LINE_RE.match(line)
+        if m:
+            subject, predicate, object_, _date, note = m.groups()
+            results.append(
+                {
+                    "subject": subject.strip(),
+                    "predicate": predicate.strip(),
+                    "object": object_.strip(),
+                    "note": note.strip() if note else None,
+                }
+            )
+    return results
+
+
+def sync_relations_from_file(relations_file: Path, index: MemoryIndex) -> dict:
+    """
+    Reconcile the SQLite ``relations`` table with RELATIONS.md (Option B).
+
+    RELATIONS.md is the source of truth.  This function:
+      - Parses every valid relation line from the file.
+      - Upserts any relation not yet in SQLite.
+      - Deletes any SQLite relation whose triple no longer appears in the file.
+
+    Returns a summary dict: {upserted, deleted, total_in_file}.
+    """
+    file_relations = parse_relations_from_file(relations_file)
+
+    # Build a set of IDs that should exist (derived from file content)
+    file_ids: set[str] = set()
+    for r in file_relations:
+        rid = _relation_id(r["subject"], r["predicate"], r["object"])
+        file_ids.add(rid)
+        index.insert_relation(
+            relation_id=rid,
+            subject=r["subject"],
+            predicate=r["predicate"],
+            object_=r["object"],
+            note=r["note"],
+            source_file=str(relations_file),
+            confidence=1.0,
+        )
+
+    # Remove any SQLite rows whose triple is no longer in the file
+    existing_rows = index.get_all_relations()
+    deleted = 0
+    for row in existing_rows:
+        if row["id"] not in file_ids:
+            index.delete_relation(row["id"])
+            deleted += 1
+
+    upserted = len(file_ids)
+    return {"upserted": upserted, "deleted": deleted, "total_in_file": len(file_relations)}

@@ -15,6 +15,7 @@ from typing import Optional
 from openmemory.config import ChunkingConfig
 from openmemory.core.chunker import chunk_file
 from openmemory.core.embeddings import EmbeddingProvider
+from openmemory.core.graph import sync_relations_from_file
 from openmemory.core.index import MemoryIndex
 from openmemory.core.workspace import Workspace
 
@@ -107,6 +108,10 @@ def sync_workspace(
             )
             index.upsert_chunks(chunks, embeddings, provider.model_id)
 
+            # Keep relations table in sync when RELATIONS.md changes
+            if name == "RELATIONS.MD":
+                sync_relations_from_file(path, index)
+
             if existing:
                 summary["updated"] += 1
             else:
@@ -164,6 +169,11 @@ def sync_file(
             size=stat.st_size,
         )
         index.upsert_chunks(chunks, embeddings, provider.model_id)
+
+        # Keep relations table in sync when RELATIONS.md changes
+        if name == "RELATIONS.MD":
+            sync_relations_from_file(path, index)
+
         return {"status": "synced", "file": str(path), "chunks": len(chunks)}
     except Exception as e:
         return {"status": "error", "file": str(path), "error": str(e)}

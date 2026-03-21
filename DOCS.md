@@ -468,8 +468,18 @@ Seven-step pipeline:
 
 #### 7. Relation Graph (`openmemory/core/graph.py`)
 Stores typed entity triples (`subject → predicate → object`) in two places simultaneously:
-- **SQLite** `relations` table - fast structured lookup.
-- **`RELATIONS.md`** - human-readable, editable, injected at bootstrap.
+- **SQLite** `relations` table — fast structured lookup used by graph expansion during search.
+- **`RELATIONS.md`** — human-readable, editable mirror, injected at bootstrap.
+
+**Source-of-truth model:** `RELATIONS.md` is the authoritative record. Any change to the file is automatically reconciled back into SQLite:
+- `sync_relations_from_file(relations_file, index)` — parses all valid lines and upserts/deletes SQLite rows to match the file exactly.
+- `parse_relations_from_file(relations_file)` — extracts `{subject, predicate, object, note}` dicts from the file (invalid lines silently skipped).
+- Called automatically by `sync_file()` / `sync_workspace()` whenever RELATIONS.md changes, and by `memory_replace_text` / `memory_replace_lines` / `memory_delete` after every edit.
+
+Format for each line in RELATIONS.md:
+```
+- [Subject] --predicate--> [Object] (YYYY-MM-DD) — "optional note"
+```
 
 Semantic deduplication: before inserting, the new triple is embedded and compared (cosine similarity) against all existing triples. If similarity ≥ `dedup_threshold` (default 0.92) the write is skipped and the existing triple is returned.
 
@@ -493,9 +503,9 @@ Eight JSON-schema-described tools exposed to the LLM via function calling:
 | `memory_search` | - | Full hybrid search pipeline |
 | `memory_get` | - | Line-range read of any workspace file |
 | `memory_list` | - | Directory listing or file preview |
-| `memory_delete` | Mutable files only | Tombstone-style deletion (1-indexed); re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. |
-| `memory_replace_text` | Mutable files only | Replaces first exact string match in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. |
-| `memory_replace_lines` | Mutable files only | Replaces a 1-indexed inclusive line range in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. |
+| `memory_delete` | Mutable files only | Tombstone-style deletion (1-indexed); re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, also deletes the corresponding SQLite relation rows. |
+| `memory_replace_text` | Mutable files only | Replaces first exact string match in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, validates replacement format and reconciles SQLite. |
+| `memory_replace_lines` | Mutable files only | Replaces a 1-indexed inclusive line range in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, validates replacement format and reconciles SQLite. |
 | `memory_relate` | `RELATIONS.md` + SQLite | Semantic dedup before insert |
 
 #### 12. LLM Adapters (`openmemory/adapters/`)
@@ -711,6 +721,11 @@ bootstrap:
   inject_daily_logs: true        # daily/YYYY-MM-DD.md (today + yesterday)
   inject_relations: true         # RELATIONS.md
 
+  # Reconcile the SQLite relations table from RELATIONS.md at session start.
+  # Enable when you edit RELATIONS.md manually outside the agent so that
+  # changes are reflected at the next session start. Disabled by default.
+  sync_relations_on_bootstrap: false
+
 # ---------------------------------------------------------------------------
 # Compaction - pre-context-window-flush hooks
 # ---------------------------------------------------------------------------
@@ -777,6 +792,19 @@ All settings are available as environment variables using the `OPENMEMORY_` pref
 | Variable | Description | Default |
 |---|---|---|
 | `OPENMEMORY_RELATIONS__DEDUP_THRESHOLD` | Cosine similarity threshold for dedup | `0.92` |
+
+**Bootstrap**
+
+| Variable | Description | Default |
+|---|---|---|
+| `OPENMEMORY_BOOTSTRAP__MAX_CHARS_PER_FILE` | Max chars per injected file before truncation | `20000` |
+| `OPENMEMORY_BOOTSTRAP__MAX_TOTAL_CHARS` | Max total chars across all injected files | `150000` |
+| `OPENMEMORY_BOOTSTRAP__INJECT_LONG_TERM_MEMORY` | Inject MEMORY.md | `true` |
+| `OPENMEMORY_BOOTSTRAP__INJECT_USER_PROFILE` | Inject USER.md | `true` |
+| `OPENMEMORY_BOOTSTRAP__INJECT_AGENTS` | Inject AGENTS.md | `true` |
+| `OPENMEMORY_BOOTSTRAP__INJECT_DAILY_LOGS` | Inject today's + yesterday's daily logs | `true` |
+| `OPENMEMORY_BOOTSTRAP__INJECT_RELATIONS` | Inject RELATIONS.md | `true` |
+| `OPENMEMORY_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP` | Reconcile SQLite relations from RELATIONS.md at session start. Enable when you edit RELATIONS.md manually outside the agent so that changes are reflected at the next session start. | `false` |
 
 **General**
 

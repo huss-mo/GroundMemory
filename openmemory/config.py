@@ -225,13 +225,21 @@ class BootstrapConfig(BaseSettings):
     """Bootstrap injection configuration.
 
     Environment variables (prefix: OPENMEMORY_BOOTSTRAP__):
-        MAX_CHARS_PER_FILE    – max chars per injected file before truncation
-        MAX_TOTAL_CHARS       – max chars across all injected files
-        INJECT_LONG_TERM_MEMORY – inject MEMORY.md
-        INJECT_USER_PROFILE   – inject USER.md
-        INJECT_AGENTS         – inject AGENTS.md
-        INJECT_DAILY_LOGS     – inject today's/yesterday's daily logs
-        INJECT_RELATIONS      – inject RELATIONS.md
+        MAX_CHARS_PER_FILE       – max chars per injected file before truncation
+        MAX_TOTAL_CHARS          – max chars across all injected files
+        INJECT_LONG_TERM_MEMORY  – inject MEMORY.md
+        INJECT_USER_PROFILE      – inject USER.md
+        INJECT_AGENTS            – inject AGENTS.md
+        INJECT_DAILY_LOGS        – inject today's/yesterday's daily logs
+        INJECT_RELATIONS         – inject RELATIONS.md
+        SYNC_RELATIONS_ON_BOOTSTRAP – reconcile SQLite relations table from
+                                      RELATIONS.md before injecting context.
+                                      Useful when a user manually edits
+                                      RELATIONS.md outside the agent (e.g. in a
+                                      text editor) and wants the internal graph
+                                      to be refreshed at the next session start.
+                                      Disabled by default; enable it if you edit
+                                      RELATIONS.md by hand between sessions.
     """
 
     model_config = SettingsConfigDict(
@@ -247,6 +255,7 @@ class BootstrapConfig(BaseSettings):
     inject_agents: bool = True
     inject_daily_logs: bool = True
     inject_relations: bool = True
+    sync_relations_on_bootstrap: bool = False
 
 
 # ---------------------------------------------------------------------------
