@@ -6,7 +6,7 @@ from openmemory.core import (
     embeddings,
     index,
     search,
-    graph,
+    relations,
     sync,
 )
 
@@ -17,6 +17,6 @@ __all__ = [
     "embeddings",
     "index",
     "search",
-    "graph",
+    "relations",
     "sync",
 ]

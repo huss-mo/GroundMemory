@@ -1,12 +1,23 @@
 """
-Relation graph management.
+Relation management — the single owner of all relation logic.
 
-Stores named relationships between entities in:
-  1. SQLite (fast lookup, structured queries)
-  2. RELATIONS.md (human-readable mirror, injected at bootstrap)
+Stores named relationships between entities in two places simultaneously:
+  1. SQLite ``relations`` table  — fast structured lookup used during search
+  2. RELATIONS.md               — human-readable mirror, injected at bootstrap
 
 Format in RELATIONS.md:
   - [Alice] --leads--> [Auth Team] (2026-03-20) — "Added during sprint planning"
+
+Public API (used by tools, sync, session):
+  add_relation(...)                 — write a relation to both stores (with dedup)
+  get_relations(...)                — read relations from SQLite
+  parse_relations_from_text(…)      — parse valid relation lines from a text string
+  parse_relations_from_file(…)      — parse valid lines from RELATIONS.md
+  sync_relations_from_file(…)       — reconcile SQLite from RELATIONS.md
+  format_relations_for_context      — format relations as a Markdown block
+  validate_relations_replacement(…) — validate that replacement text is valid RELATIONS.md
+  RELATION_LINE_RE                  — compiled regex for a valid RELATIONS.md line
+  RELATIONS_FORMAT_REMINDER         — human-readable format reminder string
 """
 
 from __future__ import annotations
@@ -24,7 +35,11 @@ from openmemory.core.storage import _atomic_write
 if TYPE_CHECKING:
     from openmemory.core.embeddings import EmbeddingProvider
 
-# Regex that matches a valid RELATIONS.md line.
+# ---------------------------------------------------------------------------
+# Format / regex
+# ---------------------------------------------------------------------------
+
+# Matches a valid RELATIONS.md line.
 # Groups: subject, predicate, object, date (optional), note (optional)
 RELATION_LINE_RE = re.compile(
     r"^\s*-\s+\[([^\]]+)\]\s+--([^->\s][^->]*?)-->\s+\[([^\]]+)\]"
@@ -51,6 +66,10 @@ def _format_relation_line(
         line += f' — "{note}"'
     return line
 
+
+# ---------------------------------------------------------------------------
+# Semantic deduplication helpers
+# ---------------------------------------------------------------------------
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     """Compute cosine similarity between two equal-length float vectors."""
@@ -99,6 +118,10 @@ def _find_semantic_duplicate(
             return dict(row)
     return None
 
+
+# ---------------------------------------------------------------------------
+# Write / read API
+# ---------------------------------------------------------------------------
 
 def add_relation(
     index: MemoryIndex,
@@ -156,11 +179,9 @@ def add_relation(
         confidence=confidence,
     )
 
-    # 2. Append to RELATIONS.md (idempotent-ish: check if line already present)
+    # 2. Append to RELATIONS.md (only if this exact triple isn't already present)
     line = _format_relation_line(subject, predicate, object_, note)
     existing = relations_file.read_text(encoding="utf-8") if relations_file.exists() else ""
-
-    # Only append if this exact triple isn't already in the file
     marker = f"[{subject}] --{predicate}--> [{object_}]"
     if marker not in existing:
         new_content = existing.rstrip() + "\n" + line + "\n"
@@ -215,18 +236,54 @@ def format_relations_for_context(relations: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def parse_relations_from_file(relations_file: Path) -> list[dict]:
+# ---------------------------------------------------------------------------
+# Format validation
+# ---------------------------------------------------------------------------
+
+# Human-readable reminder used in tool error/ok responses
+RELATIONS_FORMAT_REMINDER = (
+    "Required format for each line: "
+    "- [Subject] --predicate--> [Object] (YYYY-MM-DD) \u2014 \"optional note\"\n"
+    "Example: - [Alice] --leads--> [Auth Team] (2026-03-20) \u2014 \"Sprint planning\""
+)
+
+
+def validate_relations_replacement(text: str) -> tuple[bool, list[str], list[str]]:
     """
-    Parse all valid relation lines from RELATIONS.md.
+    Validate that every non-blank, non-comment line in *text* matches the
+    RELATIONS.md relation format.
+
+    Returns ``(all_valid, valid_lines, invalid_lines)``.
+
+    Blank lines and comment lines (starting with ``#`` or ``<!--``) are always
+    accepted and do not appear in either returned list.
+    """
+    valid: list[str] = []
+    invalid: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("<!--"):
+            continue
+        if RELATION_LINE_RE.match(line):
+            valid.append(stripped)
+        else:
+            invalid.append(stripped)
+    return len(invalid) == 0, valid, invalid
+
+
+def parse_relations_from_text(text: str) -> list[dict]:
+    """
+    Parse all valid relation lines from a raw text string.
 
     Each returned dict has keys: subject, predicate, object, note (or None).
     Lines that do not match the expected format are silently skipped.
-    """
-    if not relations_file.exists():
-        return []
 
+    This is the string-based counterpart of :func:`parse_relations_from_file`
+    and is used when the caller already has the text in memory (e.g. a slice
+    of lines about to be deleted), avoiding the need to write a temp file.
+    """
     results: list[dict] = []
-    for line in relations_file.read_text(encoding="utf-8").splitlines():
+    for line in text.splitlines():
         m = RELATION_LINE_RE.match(line)
         if m:
             subject, predicate, object_, _date, note = m.groups()
@@ -241,9 +298,21 @@ def parse_relations_from_file(relations_file: Path) -> list[dict]:
     return results
 
 
+def parse_relations_from_file(relations_file: Path) -> list[dict]:
+    """
+    Parse all valid relation lines from RELATIONS.md.
+
+    Each returned dict has keys: subject, predicate, object, note (or None).
+    Lines that do not match the expected format are silently skipped.
+    """
+    if not relations_file.exists():
+        return []
+    return parse_relations_from_text(relations_file.read_text(encoding="utf-8"))
+
+
 def sync_relations_from_file(relations_file: Path, index: MemoryIndex) -> dict:
     """
-    Reconcile the SQLite ``relations`` table with RELATIONS.md (Option B).
+    Reconcile the SQLite ``relations`` table with RELATIONS.md.
 
     RELATIONS.md is the source of truth.  This function:
       - Parses every valid relation line from the file.

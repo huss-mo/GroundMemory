@@ -31,7 +31,7 @@ For a project overview and quick start, see [README.md](README.md).
       - [4. Embedding Providers (`openmemory/core/embeddings.py`)](#4-embedding-providers-openmemorycoreembeddingspy)
       - [5. Memory Index (`openmemory/core/index.py`)](#5-memory-index-openmemorycoreindexpy)
       - [6. Hybrid Search (`openmemory/core/search.py`)](#6-hybrid-search-openmemorycoresearchpy)
-      - [7. Relation Graph (`openmemory/core/graph.py`)](#7-relation-graph-openmemorycoregraphpy)
+      - [7. Relation Graph (`openmemory/core/relations.py`)](#7-relation-graph-openmemorycorerelationspy)
       - [8. Sync (`openmemory/core/sync.py`)](#8-sync-openmemorycoresyncpy)
       - [9. Bootstrap Injector (`openmemory/bootstrap/injector.py`)](#9-bootstrap-injector-openmemorybootstrapinjectorpy)
       - [10. Compaction Hooks (`openmemory/bootstrap/compaction.py`)](#10-compaction-hooks-openmemorybootstrapcompactionpy)
@@ -466,15 +466,26 @@ Seven-step pipeline:
 6. **Graph expansion** - extract entity mentions from top results, attach related relation triples as `relation_context`.
 7. Return top `k` as `SearchResult` objects.
 
-#### 7. Relation Graph (`openmemory/core/graph.py`)
-Stores typed entity triples (`subject → predicate → object`) in two places simultaneously:
+#### 7. Relation Graph (`openmemory/core/relations.py`)
+Single consolidated module for all relation logic. Stores typed entity triples (`subject → predicate → object`) in two places simultaneously:
 - **SQLite** `relations` table — fast structured lookup used by graph expansion during search.
 - **`RELATIONS.md`** — human-readable, editable mirror, injected at bootstrap.
 
-**Source-of-truth model:** `RELATIONS.md` is the authoritative record. Any change to the file is automatically reconciled back into SQLite:
-- `sync_relations_from_file(relations_file, index)` — parses all valid lines and upserts/deletes SQLite rows to match the file exactly.
-- `parse_relations_from_file(relations_file)` — extracts `{subject, predicate, object, note}` dicts from the file (invalid lines silently skipped).
-- Called automatically by `sync_file()` / `sync_workspace()` whenever RELATIONS.md changes, and by `memory_replace_text` / `memory_replace_lines` / `memory_delete` after every edit.
+**Source-of-truth model:** `RELATIONS.md` is the authoritative record. Any change to the file is automatically reconciled back into SQLite.
+
+**Public API:**
+
+| Symbol | Description |
+|---|---|
+| `add_relation(...)` | Write a relation to both SQLite and RELATIONS.md with semantic dedup |
+| `get_relations(...)` | Read relations from SQLite |
+| `parse_relations_from_text(text)` | Parse valid relation lines from a raw string; used by `memory_delete` to identify rows to remove without a temp-file round-trip |
+| `parse_relations_from_file(path)` | Parse valid lines from RELATIONS.md into `{subject, predicate, object, note}` dicts (delegates to `parse_relations_from_text`) |
+| `sync_relations_from_file(path, index)` | Upsert/delete SQLite rows to match RELATIONS.md exactly; called by `sync_file` / `sync_workspace` and via `sync_after_edit` after every in-place edit |
+| `validate_relations_replacement(text)` | Validate that every non-blank, non-comment line in a replacement string matches the RELATIONS.md format; returns `(all_valid, valid_lines, invalid_lines)` |
+| `format_relations_for_context` | Format the relation graph as a Markdown block for bootstrap injection |
+| `RELATION_LINE_RE` | Compiled regex for a valid RELATIONS.md line |
+| `RELATIONS_FORMAT_REMINDER` | Human-readable format reminder string included in validation error responses |
 
 Format for each line in RELATIONS.md:
 ```
@@ -503,10 +514,18 @@ Eight JSON-schema-described tools exposed to the LLM via function calling:
 | `memory_search` | - | Full hybrid search pipeline |
 | `memory_get` | - | Line-range read of any workspace file |
 | `memory_list` | - | Directory listing or file preview |
-| `memory_delete` | Mutable files only | Tombstone-style deletion (1-indexed); re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, also deletes the corresponding SQLite relation rows. |
-| `memory_replace_text` | Mutable files only | Replaces first exact string match in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, validates replacement format and reconciles SQLite. |
-| `memory_replace_lines` | Mutable files only | Replaces a 1-indexed inclusive line range in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, validates replacement format and reconciles SQLite. |
+| `memory_delete` | Mutable files only | Tombstone-style deletion (1-indexed); re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, also deletes the corresponding SQLite relation rows via `parse_relations_from_text`. |
+| `memory_replace_text` | Mutable files only | Replaces first exact string match in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, validates replacement format via `validate_relations_replacement` and reconciles SQLite. |
+| `memory_replace_lines` | Mutable files only | Replaces a 1-indexed inclusive line range in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, validates replacement format via `validate_relations_replacement` and reconciles SQLite. |
 | `memory_relate` | `RELATIONS.md` + SQLite | Semantic dedup before insert |
+
+**Shared utilities (`openmemory/tools/base.py`):**
+
+| Symbol | Description |
+|---|---|
+| `ok(data)` / `err(msg)` | Wrap a successful or error tool result |
+| `is_immutable(file)` | Return `True` for `MEMORY.md` and `daily/*.md` |
+| `sync_after_edit(session, resolved, is_relations, base_payload)` | Re-index a file after an in-place edit and return `ok(payload)`. Calls `sync_file` (and, when `is_relations=True`, `sync_relations_from_file`) non-fatally — sync failures add a `warning` key rather than raising. Used by `memory_delete`, `memory_replace_text`, and `memory_replace_lines` to eliminate the duplicated re-index block that each function would otherwise carry. |
 
 #### 12. LLM Adapters (`openmemory/adapters/`)
 Thin schema-conversion + agentic-loop helpers:
@@ -564,7 +583,7 @@ LLM receives system prompt + tool schemas + user message
      │       └─► sync.sync_file                         → re-index
      │
      └─► memory_relate(subject, predicate, object)
-             └─► graph._find_semantic_duplicate          → cosine dedup check
+             └─► relations._find_semantic_duplicate      → cosine dedup check
              └─► index.insert_relation                  → SQLite relations table
              └─► storage._atomic_write                  → append to RELATIONS.md
      │

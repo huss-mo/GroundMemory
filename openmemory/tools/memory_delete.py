@@ -1,9 +1,9 @@
 """memory_delete tool — tombstone-delete lines from a memory file."""
 from __future__ import annotations
 
-from openmemory.tools.base import ok, err, is_immutable, _IMMUTABLE_MSG
+from openmemory.tools.base import ok, err, is_immutable, _IMMUTABLE_MSG, sync_after_edit
 from openmemory.core import storage
-from openmemory.core.graph import parse_relations_from_file, _relation_id
+from openmemory.core.relations import parse_relations_from_text, _relation_id
 
 SCHEMA = {
     "name": "memory_delete",
@@ -66,19 +66,10 @@ def run(
     # Snapshot the relation lines that are about to be deleted BEFORE the edit
     relations_to_delete: list[dict] = []
     if is_relations and resolved.exists():
-        all_file_relations = parse_relations_from_file(resolved)
         lines = resolved.read_text(encoding="utf-8").splitlines()
         # Collect lines in the to-be-deleted range (1-indexed inclusive)
         deleted_text = "\n".join(lines[start_line - 1 : end_line])
-        # Parse only from the deleted slice to know which triples to remove
-        import tempfile, pathlib
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".md", delete=False, encoding="utf-8"
-        ) as tmp:
-            tmp.write(deleted_text)
-            tmp_path = pathlib.Path(tmp.name)
-        relations_to_delete = parse_relations_from_file(tmp_path)
-        tmp_path.unlink(missing_ok=True)
+        relations_to_delete = parse_relations_from_text(deleted_text)
 
     # storage.delete_lines uses 0-indexed [start, end) — convert from 1-indexed inclusive
     try:
@@ -97,26 +88,11 @@ def run(
             session.index.delete_relation(rid)
             relations_deleted.append(f"[{r['subject']}] --{r['predicate']}--> [{r['object']}]")
 
-    # Re-index the file so the index reflects the deletion immediately.
-    try:
-        from openmemory.core.sync import sync_file
-
-        sync_file(resolved, session.index, session.provider, session.config.chunking)
-    except Exception as exc:  # noqa: BLE001
-        # Non-fatal: the file was deleted correctly; index will catch up on next sync.
-        payload = {
-            "file": file,
-            "deleted_lines": result.get("deleted_lines", f"{start_line}-{end_line}"),
-            "warning": f"Index sync failed: {exc}",
-        }
-        if relations_deleted:
-            payload["relations_deleted"] = relations_deleted
-        return ok(payload)
-
-    payload = {
+    base_payload = {
         "file": file,
         "deleted_lines": result.get("deleted_lines", f"{start_line}-{end_line}"),
     }
     if relations_deleted:
-        payload["relations_deleted"] = relations_deleted
-    return ok(payload)
+        base_payload["relations_deleted"] = relations_deleted
+
+    return sync_after_edit(session, resolved, is_relations=False, base_payload=base_payload)

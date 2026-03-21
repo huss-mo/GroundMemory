@@ -15,7 +15,7 @@ from typing import Optional
 from openmemory.config import ChunkingConfig
 from openmemory.core.chunker import chunk_file
 from openmemory.core.embeddings import EmbeddingProvider
-from openmemory.core.graph import sync_relations_from_file
+from openmemory.core.relations import sync_relations_from_file
 from openmemory.core.index import MemoryIndex
 from openmemory.core.workspace import Workspace
 

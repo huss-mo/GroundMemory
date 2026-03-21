@@ -1,42 +1,16 @@
 """memory_replace_text and memory_replace_lines tools — in-place edits to memory files."""
 from __future__ import annotations
 
-import re
-
-from openmemory.tools.base import ok, err, is_immutable, _IMMUTABLE_MSG
+from openmemory.tools.base import ok, err, is_immutable, _IMMUTABLE_MSG, sync_after_edit
 from openmemory.core import storage
-from openmemory.core.graph import RELATION_LINE_RE, sync_relations_from_file
-
-# ---------------------------------------------------------------------------
-# RELATIONS.md helpers
-# ---------------------------------------------------------------------------
-
-_RELATIONS_FORMAT_REMINDER = (
-    "Required format for each line: "
-    "- [Subject] --predicate--> [Object] (YYYY-MM-DD) — \"optional note\"\n"
-    "Example: - [Alice] --leads--> [Auth Team] (2026-03-20) — \"Sprint planning\""
+from openmemory.core.relations import (
+    validate_relations_replacement,
+    RELATIONS_FORMAT_REMINDER,
 )
 
-
-def _validate_relations_replacement(text: str) -> tuple[bool, list[str], list[str]]:
-    """
-    Validate that every non-blank, non-comment line in *text* matches the
-    RELATIONS.md relation format.
-
-    Returns (all_valid, valid_lines, invalid_lines).
-    """
-    valid: list[str] = []
-    invalid: list[str] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        # Allow blank lines and comment / header lines (starting with # or <!--)
-        if not stripped or stripped.startswith("#") or stripped.startswith("<!--"):
-            continue
-        if RELATION_LINE_RE.match(line):
-            valid.append(stripped)
-        else:
-            invalid.append(stripped)
-    return len(invalid) == 0, valid, invalid
+# Back-compat aliases (tests may import the private names directly)
+_validate_relations_replacement = validate_relations_replacement
+_RELATIONS_FORMAT_REMINDER = RELATIONS_FORMAT_REMINDER
 
 
 # ---------------------------------------------------------------------------
@@ -114,38 +88,12 @@ def run_text(session, file: str, search: str, replacement: str) -> dict:
     if "error" in result:
         return err(result["error"])
 
-    # Re-index so the updated content is searchable immediately
-    relation_sync_result = None
-    try:
-        from openmemory.core.sync import sync_file
-        sync_file(resolved, session.index, session.provider, session.config.chunking)
-        # sync_file already calls sync_relations_from_file for RELATIONS.md,
-        # but we also capture a direct sync result for the response when relevant
-        if is_relations:
-            relation_sync_result = sync_relations_from_file(resolved, session.index)
-    except Exception as exc:  # noqa: BLE001
-        payload = {
-            "file": file,
-            "replaced": True,
-            "chars_delta": result.get("chars_delta", 0),
-            "warning": f"Index sync failed: {exc}",
-        }
-        if is_relations:
-            payload["relations_format"] = "confirmed"
-            payload["format_reminder"] = _RELATIONS_FORMAT_REMINDER
-        return ok(payload)
-
-    payload: dict = {
-        "file": file,
-        "replaced": True,
-        "chars_delta": result.get("chars_delta", 0),
-    }
-    if is_relations:
-        payload["relations_format"] = "confirmed"
-        payload["format_reminder"] = _RELATIONS_FORMAT_REMINDER
-        if relation_sync_result:
-            payload["relations_synced"] = relation_sync_result
-    return ok(payload)
+    return sync_after_edit(
+        session,
+        resolved,
+        is_relations,
+        {"file": file, "replaced": True, "chars_delta": result.get("chars_delta", 0)},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -232,35 +180,14 @@ def run_lines(
     if "error" in result:
         return err(result["error"])
 
-    # Re-index so the updated content is searchable immediately
-    relation_sync_result = None
-    try:
-        from openmemory.core.sync import sync_file
-        sync_file(resolved, session.index, session.provider, session.config.chunking)
-        if is_relations:
-            relation_sync_result = sync_relations_from_file(resolved, session.index)
-    except Exception as exc:  # noqa: BLE001
-        payload = {
+    return sync_after_edit(
+        session,
+        resolved,
+        is_relations,
+        {
             "file": file,
             "replaced_lines": result.get("replaced_lines", f"{start_line}-{end_line}"),
             "replaced_preview": result.get("replaced_preview", ""),
             "chars_delta": result.get("chars_delta", 0),
-            "warning": f"Index sync failed: {exc}",
-        }
-        if is_relations:
-            payload["relations_format"] = "confirmed"
-            payload["format_reminder"] = _RELATIONS_FORMAT_REMINDER
-        return ok(payload)
-
-    payload = {
-        "file": file,
-        "replaced_lines": result.get("replaced_lines", f"{start_line}-{end_line}"),
-        "replaced_preview": result.get("replaced_preview", ""),
-        "chars_delta": result.get("chars_delta", 0),
-    }
-    if is_relations:
-        payload["relations_format"] = "confirmed"
-        payload["format_reminder"] = _RELATIONS_FORMAT_REMINDER
-        if relation_sync_result:
-            payload["relations_synced"] = relation_sync_result
-    return ok(payload)
+        },
+    )

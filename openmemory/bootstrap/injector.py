@@ -18,7 +18,7 @@ from typing import Sequence
 
 from openmemory.config import BootstrapConfig
 from openmemory.core.workspace import Workspace
-from openmemory.core import storage, graph as _graph
+from openmemory.core import storage, relations as _graph
 from openmemory.core.index import MemoryIndex
 
 

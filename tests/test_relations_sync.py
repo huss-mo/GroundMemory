@@ -6,7 +6,7 @@ import uuid
 import pytest
 
 from openmemory.config import BootstrapConfig, EmbeddingConfig, OpenMemoryConfig, SearchConfig
-from openmemory.core.graph import (
+from openmemory.core.relations import (
     RELATION_LINE_RE,
     _relation_id,
     add_relation,

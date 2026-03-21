@@ -7,7 +7,7 @@ import pytest
 from openmemory.config import OpenMemoryConfig, EmbeddingConfig, SearchConfig, RelationsConfig
 from openmemory.session import MemorySession
 from openmemory.core.embeddings import NullEmbeddingProvider
-from openmemory.core import graph as _graph
+from openmemory.core import relations as _graph
 
 
 class TestMemoryRelateBasic:
@@ -271,7 +271,7 @@ class TestSemanticDedup:
 
     def test_cosine_similarity_pure_function(self):
         """Unit-test the _cosine_similarity helper directly."""
-        from openmemory.core.graph import _cosine_similarity
+        from openmemory.core.relations import _cosine_similarity
 
         # Identical vectors → similarity 1.0
         assert _cosine_similarity([1.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)

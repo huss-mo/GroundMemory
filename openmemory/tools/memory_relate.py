@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from openmemory.tools.base import ok, err
-from openmemory.core import graph as _graph
+from openmemory.core import relations as _relations
 
 SCHEMA = {
     "name": "memory_relate",
@@ -67,7 +67,7 @@ def run(
     clamped_confidence = max(0.0, min(1.0, confidence))
 
     try:
-        _graph.add_relation(
+        _relations.add_relation(
             index=session.index,
             relations_file=ws.relations_file,
             subject=subject.strip(),

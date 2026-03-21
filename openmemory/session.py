@@ -109,7 +109,7 @@ class MemorySession:
         """
         if self.config.bootstrap.sync_relations_on_bootstrap:
             try:
-                from openmemory.core.graph import sync_relations_from_file
+                from openmemory.core.relations import sync_relations_from_file
 
                 sync_relations_from_file(
                     self.workspace.relations_file, self.index
