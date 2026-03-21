@@ -81,7 +81,7 @@ while True:
         session=session,
         client=client,
         messages=messages,
-        model="gpt-4o",
+        model="gpt-4.1",
         max_iterations=5,
     )
 

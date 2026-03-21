@@ -80,7 +80,7 @@ while True:
         session=session,
         client=client,
         messages=messages,
-        model="claude-opus-4-5",
+        model="claude-opus-4-6",
         max_tokens=4096,
         system=system_prompt,
         max_iterations=5,

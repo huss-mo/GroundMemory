@@ -338,6 +338,14 @@ for block in response.content:
         print(result)
 ```
 
+> **Complete runnable agents** - `examples/openai_agent.py` and `examples/anthropic_agent.py`
+> show a full interactive loop with workspace sync on startup, compaction detection, and
+> graceful shutdown. Run them with:
+> ```bash
+> uv run python examples/openai_agent.py
+> uv run python examples/anthropic_agent.py
+> ```
+
 ---
 
 ## Python API Example
