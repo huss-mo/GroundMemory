@@ -37,9 +37,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# OpenMemory runtime data (workspace stored in ~/.openmemory by default, but
-# if root_dir is pointed inside this repo, ignore it)
-memory_data/
+# OpenMemory runtime data
+# Docker bind-mount directory created by docker-compose (./data:/data)
+data/
 *.db
 *.db-shm
 *.db-wal

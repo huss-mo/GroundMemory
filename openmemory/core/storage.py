@@ -71,13 +71,31 @@ def file_hash(path: Path) -> str:
 def write_long_term(workspace: Workspace, content: str) -> dict:
     """
     Append *content* to MEMORY.md under a timestamped section header.
+
+    Deduplication: if the exact same content body already exists anywhere in
+    the file, the write is skipped and the existing entry is reported.  This
+    makes the operation idempotent on retries (e.g. from MCP clients that
+    retry on apparent errors).
+
     Returns metadata about the write.
     """
     path = workspace.memory_file
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    entry = f"\n## {timestamp}\n\n{content.strip()}\n"
+    body = content.strip()
+    entry = f"\n## {timestamp}\n\n{body}\n"
 
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
+
+    # Skip write if this exact content body is already present in the file
+    if body and body in existing:
+        return {
+            "file": str(path.relative_to(workspace.path)),
+            "tier": "long_term",
+            "timestamp": timestamp,
+            "chars_written": 0,
+            "deduplicated": True,
+        }
+
     _atomic_write(path, existing + entry)
 
     return {
@@ -85,6 +103,7 @@ def write_long_term(workspace: Workspace, content: str) -> dict:
         "tier": "long_term",
         "timestamp": timestamp,
         "chars_written": len(entry),
+        "deduplicated": False,
     }
 
 

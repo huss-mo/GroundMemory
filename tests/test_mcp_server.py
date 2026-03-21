@@ -32,8 +32,8 @@ def _ok(**extra) -> dict:
 
 
 def _err(msg: str = "something went wrong") -> dict:
-    """Build a minimal error envelope."""
-    return {"ok": False, "status": "error", "error": msg}
+    """Build a minimal error envelope matching base.err() output."""
+    return {"status": "error", "message": msg}
 
 
 def _make_mock_session(**tool_returns):
@@ -68,14 +68,14 @@ class TestUnwrap:
         with pytest.raises(ValueError, match="something went wrong"):
             mcp_mod._unwrap(_err("something went wrong"))
 
-    def test_error_without_error_key_raises_unknown(self):
+    def test_error_without_message_key_raises_unknown(self):
         with pytest.raises(ValueError, match="unknown error"):
-            mcp_mod._unwrap({"ok": False})
+            mcp_mod._unwrap({"status": "error"})
 
-    def test_ok_false_without_ok_key_raises(self):
-        """A dict with no 'ok' key is treated as a failure (falsy)."""
+    def test_missing_status_raises(self):
+        """A dict with no 'status' key (or status != 'ok') is treated as a failure."""
         with pytest.raises(ValueError):
-            mcp_mod._unwrap({"status": "ok"})  # missing 'ok' key → falsy
+            mcp_mod._unwrap({"ok": True})  # missing 'status' key → status != "ok"
 
 
 # ---------------------------------------------------------------------------

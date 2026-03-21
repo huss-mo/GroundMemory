@@ -51,8 +51,8 @@ mcp = FastMCP(
 
 def _unwrap(result: dict) -> str:
     """Return JSON string of result, raising ValueError on tool errors."""
-    if not result.get("ok"):
-        raise ValueError(result.get("error", "unknown error"))
+    if result.get("status") != "ok":
+        raise ValueError(result.get("message", "unknown error"))
     return json.dumps(result)
 
 
