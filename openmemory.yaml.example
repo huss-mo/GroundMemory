@@ -119,15 +119,27 @@ bootstrap:
 # ---------------------------------------------------------------------------
 # Compaction — pre-context-window-flush hooks
 # ---------------------------------------------------------------------------
+#
+# When token usage crosses the flush threshold the adapter injects a message
+# asking the agent to call memory_write for anything worth keeping, before the
+# LLM provider silently drops or summarises old messages.
+#
+# Flush fires when: current_tokens >= min(soft_threshold_tokens, context_window_tokens - reserve_floor_tokens)
 compaction:
   # Enable compaction detection
   enabled: true
 
-  # Tokens remaining in the context window that trigger should_compact() = True
-  soft_threshold_tokens: 4000
+  # Total token capacity of the model being used.
+  # Used to derive the hard flush limit together with reserve_floor_tokens.
+  context_window_tokens: 128000
 
-  # Minimum tokens always kept free for the model's response
-  reserve_floor_tokens: 20000
+  # Flush when this many tokens have been *consumed* in the context window
+  # (counted from zero — this is token usage, not tokens remaining).
+  soft_threshold_tokens: 64000
+
+  # Always keep this many tokens free for the model's reply.
+  # Hard flush limit = context_window_tokens - reserve_floor_tokens.
+  reserve_floor_tokens: 32000
 
   # Messages injected at the flush turn (override if you need custom wording)
   # system_prompt: "Session nearing compaction. Store durable memories now."

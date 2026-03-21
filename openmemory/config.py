@@ -146,12 +146,21 @@ class SearchConfig(BaseSettings):
 class CompactionConfig(BaseSettings):
     """Pre-compaction flush configuration.
 
+    When the context window is nearly full the adapter injects a flush message
+    that tells the agent to call memory_write for anything worth keeping, before
+    the LLM provider silently drops or summarises old messages.
+
     Environment variables (prefix: OPENMEMORY_COMPACTION__):
-        ENABLED                – enable/disable compaction hooks
-        SOFT_THRESHOLD_TOKENS  – tokens remaining that trigger flush
-        RESERVE_FLOOR_TOKENS   – minimum tokens always kept free
-        SYSTEM_PROMPT          – system message injected at flush turn
-        USER_PROMPT            – user message injected at flush turn
+        ENABLED                 – enable/disable compaction hooks
+        CONTEXT_WINDOW_TOKENS   – total token capacity of the model being used
+        SOFT_THRESHOLD_TOKENS   – flush when token *usage* reaches this count
+                                  (tokens consumed from the start of the window,
+                                   not tokens remaining at the end)
+        RESERVE_FLOOR_TOKENS    – always keep this many tokens free for the model's
+                                  reply; sets a hard flush limit at
+                                  context_window_tokens - reserve_floor_tokens
+        SYSTEM_PROMPT           – system message injected at the flush turn
+        USER_PROMPT             – user message injected at the flush turn
     """
 
     model_config = SettingsConfigDict(
@@ -161,8 +170,12 @@ class CompactionConfig(BaseSettings):
     )
 
     enabled: bool = True
-    soft_threshold_tokens: int = 4000
-    reserve_floor_tokens: int = 20000
+    # Total token capacity of the model (used to derive the hard flush limit)
+    context_window_tokens: int = 128_000
+    # Flush when this many tokens have been *consumed* in the context window
+    soft_threshold_tokens: int = 64_000
+    # Always keep this many tokens free for the model's reply
+    reserve_floor_tokens: int = 32_000
     system_prompt: str = (
         "Session nearing compaction. Store durable memories now before context is summarized."
     )

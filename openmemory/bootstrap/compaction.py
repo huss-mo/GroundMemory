@@ -34,28 +34,34 @@ relationships you have discovered.\
 
 def should_flush(
     current_tokens: int,
-    context_window: int,
     cfg: CompactionConfig,
+    context_window: int | None = None,
 ) -> bool:
     """
     Return True when the agent should flush memory before compaction.
 
     Parameters
     ----------
-    current_tokens  : int   Current token usage in the context window.
-    context_window  : int   Total token capacity of the model's context window.
-    cfg             : CompactionConfig
+    current_tokens : int
+        Tokens *consumed* so far in the current context window (i.e. counted
+        from zero, not tokens remaining at the end).
+    cfg            : CompactionConfig
+    context_window : int | None
+        Total token capacity of the model.  Defaults to
+        ``cfg.context_window_tokens`` when not supplied.
 
-    The flush fires when::
+    The flush fires when token usage reaches the lower of two limits::
 
-        current_tokens >= context_window - cfg.reserve_floor_tokens
-          OR
-        current_tokens >= cfg.soft_threshold_tokens
+        soft limit : cfg.soft_threshold_tokens
+                     (absolute usage ceiling — fire no later than this)
+        hard limit : context_window - cfg.reserve_floor_tokens
+                     (always keep this many tokens free for the model's reply)
     """
     if not cfg.enabled:
         return False
 
-    hard_limit = context_window - cfg.reserve_floor_tokens
+    window = context_window if context_window is not None else cfg.context_window_tokens
+    hard_limit = window - cfg.reserve_floor_tokens
     return current_tokens >= min(cfg.soft_threshold_tokens, hard_limit)
 
 

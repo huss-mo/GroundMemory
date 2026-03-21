@@ -109,11 +109,20 @@ class MemorySession:
     # Compaction helpers
     # ------------------------------------------------------------------
 
-    def should_compact(self, current_tokens: int, context_window: int) -> bool:
-        """Return True when the session is approaching the compaction threshold."""
+    def should_compact(self, current_tokens: int, context_window: int | None = None) -> bool:
+        """Return True when the session is approaching the compaction threshold.
+
+        Parameters
+        ----------
+        current_tokens : int
+            Tokens *consumed* so far (counted from zero, not tokens remaining).
+        context_window : int | None
+            Total token capacity of the model.  Defaults to
+            ``config.compaction.context_window_tokens`` when not supplied.
+        """
         from openmemory.bootstrap.compaction import should_flush
 
-        return should_flush(current_tokens, context_window, self.config.compaction)
+        return should_flush(current_tokens, self.config.compaction, context_window)
 
     def compaction_prompts(self) -> dict[str, str]:
         """Return ``{system, user}`` prompts for the pre-compaction memory flush."""
