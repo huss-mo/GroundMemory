@@ -1,7 +1,7 @@
 """memory_replace_text and memory_replace_lines tools — in-place edits to memory files."""
 from __future__ import annotations
 
-from openmemory.tools.base import ok, err
+from openmemory.tools.base import ok, err, is_immutable, _IMMUTABLE_MSG
 from openmemory.core import storage
 
 # ---------------------------------------------------------------------------
@@ -11,10 +11,12 @@ from openmemory.core import storage
 SCHEMA_TEXT = {
     "name": "memory_replace_text",
     "description": (
-        "Replace the first occurrence of an exact string in a memory file with new text. "
+        "Replace the first occurrence of an exact string in a mutable memory file with new text. "
         "Use this to correct or update a specific passage without rewriting the whole file. "
         "The search string must match the file content exactly (including whitespace). "
-        "Use memory_get first to read the file and confirm the exact text to replace."
+        "Use memory_get first to read the file and confirm the exact text to replace. "
+        "Only USER.md and AGENTS.md are editable; MEMORY.md and daily/*.md are "
+        "append-only history and cannot be modified."
     ),
     "parameters": {
         "type": "object",
@@ -22,8 +24,8 @@ SCHEMA_TEXT = {
             "file": {
                 "type": "string",
                 "description": (
-                    "Relative path to the file to edit, e.g. 'MEMORY.md', 'USER.md', "
-                    "'AGENTS.md', or 'daily/2025-01-01.md'."
+                    "Relative path to the mutable file to edit, e.g. 'USER.md' or "
+                    "'AGENTS.md'. MEMORY.md and daily/*.md are immutable."
                 ),
             },
             "search": {
@@ -44,6 +46,9 @@ SCHEMA_TEXT = {
 
 
 def run_text(session, file: str, search: str, replacement: str) -> dict:
+    if is_immutable(file):
+        return err(_IMMUTABLE_MSG.format(file=file))
+
     ws = session.workspace
     resolved = ws.resolve_file(file)
 
@@ -81,9 +86,11 @@ def run_text(session, file: str, search: str, replacement: str) -> dict:
 SCHEMA_LINES = {
     "name": "memory_replace_lines",
     "description": (
-        "Replace a range of lines in a memory file with new text. "
+        "Replace a range of lines in a mutable memory file with new text. "
         "Use this when you know the line numbers of the content to update. "
-        "Call memory_get first to read the file and identify the target line numbers."
+        "Call memory_get first to read the file and identify the target line numbers. "
+        "Only USER.md and AGENTS.md are editable; MEMORY.md and daily/*.md are "
+        "append-only history and cannot be modified."
     ),
     "parameters": {
         "type": "object",
@@ -91,8 +98,8 @@ SCHEMA_LINES = {
             "file": {
                 "type": "string",
                 "description": (
-                    "Relative path to the file to edit, e.g. 'MEMORY.md', 'USER.md', "
-                    "'AGENTS.md', or 'daily/2025-01-01.md'."
+                    "Relative path to the mutable file to edit, e.g. 'USER.md' or "
+                    "'AGENTS.md'. MEMORY.md and daily/*.md are immutable."
                 ),
             },
             "start_line": {
@@ -123,6 +130,9 @@ def run_lines(
     end_line: int,
     replacement: str,
 ) -> dict:
+    if is_immutable(file):
+        return err(_IMMUTABLE_MSG.format(file=file))
+
     ws = session.workspace
     resolved = ws.resolve_file(file)
 

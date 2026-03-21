@@ -1,15 +1,17 @@
 """memory_delete tool — tombstone-delete lines from a memory file."""
 from __future__ import annotations
 
-from openmemory.tools.base import ok, err
+from openmemory.tools.base import ok, err, is_immutable, _IMMUTABLE_MSG
 from openmemory.core import storage
 
 SCHEMA = {
     "name": "memory_delete",
     "description": (
-        "Delete specific lines from a memory file by replacing them with an audit "
-        "tombstone comment. The original lines are preserved in an audit trail "
-        "within the file so the deletion is always reversible by a human."
+        "Delete specific lines from a mutable memory file by replacing them with an audit "
+        "tombstone comment. The original lines are preserved in an audit trail within the "
+        "file so the deletion is always reversible by a human. "
+        "Only USER.md and AGENTS.md are editable; MEMORY.md and daily/*.md are "
+        "append-only history and cannot be modified."
     ),
     "parameters": {
         "type": "object",
@@ -17,8 +19,8 @@ SCHEMA = {
             "file": {
                 "type": "string",
                 "description": (
-                    "Relative path to the file to edit, e.g. 'MEMORY.md' or "
-                    "'daily/2025-01-01.md'."
+                    "Relative path to the mutable file to edit, e.g. 'USER.md' or "
+                    "'AGENTS.md'. MEMORY.md and daily/*.md are immutable."
                 ),
             },
             "start_line": {
@@ -51,12 +53,16 @@ def run(
 ) -> dict:
     ws = session.workspace
 
+    if is_immutable(file):
+        return err(_IMMUTABLE_MSG.format(file=file))
+
     resolved = ws.resolve_file(file)
     if not resolved.exists():
         return err(f"File not found: {file}")
 
+    # storage.delete_lines uses 0-indexed [start, end) — convert from 1-indexed inclusive
     try:
-        result = storage.delete_lines(resolved, start_line, end_line)
+        result = storage.delete_lines(resolved, start_line - 1, end_line)
     except (ValueError, IOError) as exc:
         return err(str(exc))
 
