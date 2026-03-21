@@ -181,7 +181,7 @@ openmemory-mcp
 
 ## MCP Server
 
-OpenMemory can run as a standalone MCP (Model Context Protocol) server over HTTP, exposing all 6 memory tools to any MCP-compatible client - including Claude Desktop, Cursor, Cline, and custom agents.
+OpenMemory can run as a standalone MCP (Model Context Protocol) server over HTTP, exposing all 8 memory tools to any MCP-compatible client - including Claude Desktop, Cursor, Cline, and custom agents.
 
 Each server instance owns a single workspace. Multiple workspaces require multiple server processes running on different ports.
 
@@ -227,7 +227,7 @@ Add the following to your client's MCP server configuration. The exact file path
 
 ### Available MCP Tools
 
-Once connected, the client has access to 7 memory tools and 1 prompt:
+Once connected, the client has access to 9 memory tools and 1 prompt:
 
 | Tool | Description |
 |---|---|
@@ -236,7 +236,9 @@ Once connected, the client has access to 7 memory tools and 1 prompt:
 | `memory_search` | Hybrid semantic + keyword search across all memory tiers |
 | `memory_get` | Read a slice of a workspace file by line range |
 | `memory_list` | List workspace files or preview a specific file |
-| `memory_delete` | Delete a line range from a workspace file |
+| `memory_delete` | Delete a 1-indexed line range from a mutable workspace file |
+| `memory_replace_text` | Replace the first occurrence of an exact string in a mutable workspace file |
+| `memory_replace_lines` | Replace a 1-indexed inclusive line range in a mutable workspace file |
 | `memory_relate` | Record a typed entity relationship (`subject → predicate → object`) |
 
 | Prompt | Description |
@@ -370,21 +372,27 @@ system_prompt = session.bootstrap()
 
 Use `session.execute_tool(name, **kwargs)` to call tools programmatically, or pass `ALL_TOOLS` to your model framework directly.
 
-| Tool | Description | Required Parameters |
-|---|---|---|
-| `memory_write` | Write a memory to long-term storage (`MEMORY.md`) or today's daily log | `content` |
-| `memory_search` | Hybrid semantic + keyword search across all memory tiers | `query` |
-| `memory_get` | Retrieve a specific memory chunk by ID | `chunk_id` |
-| `memory_list` | List memory chunks with optional source filter and pagination | - |
-| `memory_delete` | Delete a specific memory chunk by ID | `chunk_id` |
-| `memory_relate` | Record a typed entity relationship (`subject → predicate → object`) | `subject`, `predicate`, `object` |
+> **Immutability rule:** `MEMORY.md` and all `daily/*.md` files are append-only. `memory_delete`, `memory_replace_text`, and `memory_replace_lines` will reject any attempt to modify them. Use `memory_write` to append new information to these files instead.
+
+| Tool | Description | Required Parameters | Optional Parameters |
+|---|---|---|---|
+| `memory_write` | Append a memory to long-term storage or today's daily log | `content` | `tier` (default: `long_term`) |
+| `memory_search` | Hybrid semantic + keyword search across all memory tiers | `query` | `top_k`, `source` |
+| `memory_get` | Read a slice of a workspace file by 1-indexed line range | `file` | `start_line`, `end_line` |
+| `memory_list` | List workspace files or preview a specific file | - | `file` |
+| `memory_delete` | Tombstone-delete a 1-indexed line range from a mutable file | `file`, `start_line`, `end_line` | - |
+| `memory_replace_text` | Replace the first exact string match in a mutable file | `file`, `search`, `replacement` | - |
+| `memory_replace_lines` | Replace a 1-indexed inclusive line range in a mutable file | `file`, `start_line`, `end_line`, `replacement` | - |
+| `memory_relate` | Record a typed entity relationship (`subject → predicate → object`) | `subject`, `predicate`, `object` | - |
 
 **`memory_write` tiers** (`tier` parameter):
 
 | Value | Written to | Behaviour |
 |---|---|---|
-| `long_term` | `MEMORY.md` | Appended permanently; survives all sessions |
-| `daily` | `daily/YYYY-MM-DD.md` | Appended to today's date-stamped log |
+| `long_term` | `MEMORY.md` | Appended permanently; survives all sessions. **Immutable** — append only. |
+| `daily` | `daily/YYYY-MM-DD.md` | Appended to today's date-stamped log. **Immutable** — append only. |
+| `user` | `USER.md` | Updates the stable user profile. Mutable. |
+| `agent` | `AGENTS.md` | Updates agent operating instructions. Mutable. |
 
 **`memory_search` source filters** (`source` parameter):
 
@@ -472,8 +480,10 @@ Assembles a system-prompt block from workspace files, respecting per-file and to
 #### 10. Compaction Hooks (`openmemory/bootstrap/compaction.py`)
 `should_flush(current_tokens, context_window, cfg)` returns `True` when the remaining context budget drops below the configured threshold. `get_compaction_prompts(cfg)` returns the `{system, user}` messages the agent uses to flush important facts to storage before the window is summarised.
 
+> **Python API only.** Compaction hooks are only meaningful when you control the message loop yourself - i.e. when using the Python API directly (via `session.should_compact()` and `session.compaction_prompts()`). When OpenMemory is running as an MCP server, it has no visibility into the client's conversation history or token usage, so compaction cannot be triggered automatically. In that case, compaction is the responsibility of the MCP client or agent framework.
+
 #### 11. Tools (`openmemory/tools/`)
-Six JSON-schema-described tools exposed to the LLM via function calling:
+Eight JSON-schema-described tools exposed to the LLM via function calling:
 
 | Tool | File written | Notes |
 |---|---|---|
@@ -481,7 +491,9 @@ Six JSON-schema-described tools exposed to the LLM via function calling:
 | `memory_search` | - | Full hybrid search pipeline |
 | `memory_get` | - | Line-range read of any workspace file |
 | `memory_list` | - | Directory listing or file preview |
-| `memory_delete` | Any workspace file | Tombstone-style deletion with audit comment; re-indexes |
+| `memory_delete` | Mutable files only | Tombstone-style deletion (1-indexed); re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. |
+| `memory_replace_text` | Mutable files only | Replaces first exact string match in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. |
+| `memory_replace_lines` | Mutable files only | Replaces a 1-indexed inclusive line range in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. |
 | `memory_relate` | `RELATIONS.md` + SQLite | Semantic dedup before insert |
 
 #### 12. LLM Adapters (`openmemory/adapters/`)
@@ -525,7 +537,18 @@ LLM receives system prompt + tool schemas + user message
      │       └─► workspace.all_memory_files / storage   → file listing / preview
      │
      ├─► memory_delete(file, start_line, end_line)
+     │       └─► is_immutable(file) check               → reject if MEMORY.md or daily/*.md
      │       └─► storage.delete_lines                   → tombstone in Markdown
+     │       └─► sync.sync_file                         → re-index
+     │
+     ├─► memory_replace_text(file, search, replacement)
+     │       └─► is_immutable(file) check               → reject if MEMORY.md or daily/*.md
+     │       └─► storage.replace_text                   → first-match replacement in Markdown
+     │       └─► sync.sync_file                         → re-index
+     │
+     ├─► memory_replace_lines(file, start_line, end_line, replacement)
+     │       └─► is_immutable(file) check               → reject if MEMORY.md or daily/*.md
+     │       └─► storage.replace_lines                  → line-range replacement in Markdown
      │       └─► sync.sync_file                         → re-index
      │
      └─► memory_relate(subject, predicate, object)

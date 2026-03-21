@@ -95,7 +95,9 @@ Additional capabilities:
 
 ## Tools
 
-OpenMemory exposes 7 tools via MCP and the Python API: `memory_bootstrap`, `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, and `memory_relate`.
+OpenMemory exposes 9 tools via MCP and the Python API: `memory_bootstrap`, `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, `memory_replace_text`, `memory_replace_lines`, and `memory_relate`.
+
+`MEMORY.md` and all `daily/*.md` files are **append-only** — `memory_delete`, `memory_replace_text`, and `memory_replace_lines` enforce this and will reject edits to those files. Only `USER.md`, `AGENTS.md`, and `RELATIONS.md` are mutable.
 
 **When using the MCP server**, instruct your agent to call `memory_bootstrap` at the start of every session before doing anything else. This loads the full memory context (MEMORY.md, USER.md, AGENTS.md, RELATIONS.md, daily logs) into the conversation. Clients that support the MCP Prompts primitive (Cline, Claude Desktop) can instead use the `memory_bootstrap_prompt` prompt from their Prompts panel.
 
