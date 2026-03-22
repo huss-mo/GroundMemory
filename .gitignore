@@ -43,3 +43,6 @@ data/
 *.db
 *.db-shm
 *.db-wal
+
+# Others
+_untracked/
