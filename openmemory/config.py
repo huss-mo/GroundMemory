@@ -4,22 +4,17 @@ OpenMemory configuration — driven by Pydantic Settings.
 Priority (highest → lowest):
   1. Constructor kwargs (programmatic overrides)
   2. Environment variables  (OPENMEMORY_* prefix)
-  3. .env file             (.env in cwd, then project root)
-  4. openmemory.yaml       (openmemory.yaml in cwd, then project root)
+  3. .env file             ($OPENMEMORY_ROOT_DIR/.env, then ./.env in cwd)
+  4. openmemory.yaml       ($OPENMEMORY_ROOT_DIR/openmemory.yaml, then ./openmemory.yaml in cwd)
   5. Built-in defaults
 
-Example .env:
-    OPENMEMORY_EMBEDDING__PROVIDER=openai
-    OPENMEMORY_EMBEDDING__BASE_URL=http://localhost:11434/v1
-    OPENMEMORY_EMBEDDING__MODEL=nomic-embed-text
+$OPENMEMORY_ROOT_DIR defaults to ~/.openmemory (pip installs) and is set to /data
+in the official Docker image (mounted from ./data on the host).
 
-Example openmemory.yaml:
-    embedding:
-      provider: openai
-      base_url: http://localhost:11434/v1
-      model: nomic-embed-text
-    search:
-      top_k: 8
+Config file locations by install method:
+  pip install / editable:  ~/.openmemory/.env  or  ~/.openmemory/openmemory.yaml
+  Docker:                  ./data/.env          or  ./data/openmemory.yaml  (host paths)
+  dev / cwd override:      ./.env               or  ./openmemory.yaml
 """
 
 from __future__ import annotations
@@ -34,14 +29,43 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # ---------------------------------------------------------------------------
-# YAML file loader helper
+# Helpers: resolve root_dir and build config file search paths
 # ---------------------------------------------------------------------------
 
+def _get_root_dir() -> Path:
+    """Return the configured root directory without instantiating OpenMemoryConfig.
+
+    Reads OPENMEMORY_ROOT_DIR from the environment (same key pydantic-settings
+    uses for OpenMemoryConfig.root_dir) and falls back to ~/.openmemory.
+    This avoids a circular dependency when building the env_file list that is
+    needed *before* OpenMemoryConfig can be instantiated.
+    """
+    raw = os.environ.get("OPENMEMORY_ROOT_DIR")
+    if raw:
+        return Path(raw).expanduser()
+    return Path.home() / ".openmemory"
+
+
+def _env_file_paths() -> tuple[str, str]:
+    """Return the ordered .env search paths as strings for pydantic-settings.
+
+    Search order (first match wins at the pydantic-settings level):
+      1. $OPENMEMORY_ROOT_DIR/.env  — global user/Docker config
+      2. ./.env                     — cwd override (dev / Docker compose injection)
+    """
+    root = _get_root_dir()
+    return (str(root / ".env"), ".env")
+
+
 def _load_yaml_config(filename: str = "openmemory.yaml") -> dict[str, Any]:
-    """Search cwd and git-root for *filename*, return parsed dict or {}."""
-    candidates = [Path.cwd() / filename]
-    # Also check the directory containing this file (project root when installed in editable mode)
-    candidates.append(Path(__file__).parent.parent / filename)
+    """Search for *filename* in root_dir then cwd; return parsed dict or {}.
+
+    Search order (first match wins):
+      1. $OPENMEMORY_ROOT_DIR/<filename>  — global user config (~/.openmemory/ or /data/ in Docker)
+      2. ./<filename>                     — cwd override (dev mode / project-level)
+    """
+    root = _get_root_dir()
+    candidates = [root / filename, Path.cwd() / filename]
     for p in candidates:
         if p.exists():
             with p.open("r", encoding="utf-8") as f:
@@ -58,17 +82,17 @@ class EmbeddingConfig(BaseSettings):
     """Embedding provider configuration.
 
     Environment variables (prefix: OPENMEMORY_EMBEDDING__):
-        PROVIDER    – "local" | "openai" | "none"
-        LOCAL_MODEL – sentence-transformers model name
-        BASE_URL    – OpenAI-compatible endpoint URL
-        API_KEY     – API key for the endpoint
-        MODEL       – embedding model name
-        BATCH_SIZE  – number of texts per embedding call
+        PROVIDER    - "local" | "openai" | "none"
+        LOCAL_MODEL - sentence-transformers model name
+        BASE_URL    - OpenAI-compatible endpoint URL
+        API_KEY     - API key for the endpoint
+        MODEL       - embedding model name
+        BATCH_SIZE  - number of texts per embedding call
     """
 
     model_config = SettingsConfigDict(
         env_prefix="OPENMEMORY_EMBEDDING__",
-        env_file=".env",
+        env_file=_env_file_paths(),
         extra="ignore",
     )
 
@@ -104,13 +128,13 @@ class ChunkingConfig(BaseSettings):
     """Text chunking configuration.
 
     Environment variables (prefix: OPENMEMORY_CHUNKING__):
-        TOKENS  – target chunk size in approximate tokens
-        OVERLAP – overlap between chunks in approximate tokens
+        TOKENS  - target chunk size in approximate tokens
+        OVERLAP - overlap between chunks in approximate tokens
     """
 
     model_config = SettingsConfigDict(
         env_prefix="OPENMEMORY_CHUNKING__",
-        env_file=".env",
+        env_file=_env_file_paths(),
         extra="ignore",
     )
 
@@ -122,16 +146,16 @@ class SearchConfig(BaseSettings):
     """Hybrid search configuration.
 
     Environment variables (prefix: OPENMEMORY_SEARCH__):
-        TOP_K               – number of results to return
-        CANDIDATE_MULTIPLIER – candidates fetched per path before merging
-        VECTOR_WEIGHT       – weight for vector similarity (0.0–1.0)
-        TEMPORAL_DECAY_RATE – score decay per day of age (0 = disabled)
-        MMR_LAMBDA          – MMR diversity (0 = disabled, 1 = max diversity)
+        TOP_K               - number of results to return
+        CANDIDATE_MULTIPLIER - candidates fetched per path before merging
+        VECTOR_WEIGHT       - weight for vector similarity (0.0-1.0)
+        TEMPORAL_DECAY_RATE - score decay per day of age (0 = disabled)
+        MMR_LAMBDA          - MMR diversity (0 = disabled, 1 = max diversity)
     """
 
     model_config = SettingsConfigDict(
         env_prefix="OPENMEMORY_SEARCH__",
-        env_file=".env",
+        env_file=_env_file_paths(),
         extra="ignore",
     )
 
@@ -151,21 +175,21 @@ class CompactionConfig(BaseSettings):
     the LLM provider silently drops or summarises old messages.
 
     Environment variables (prefix: OPENMEMORY_COMPACTION__):
-        ENABLED                 – enable/disable compaction hooks
-        CONTEXT_WINDOW_TOKENS   – total token capacity of the model being used
-        SOFT_THRESHOLD_TOKENS   – flush when token *usage* reaches this count
+        ENABLED                 - enable/disable compaction hooks
+        CONTEXT_WINDOW_TOKENS   - total token capacity of the model being used
+        SOFT_THRESHOLD_TOKENS   - flush when token *usage* reaches this count
                                   (tokens consumed from the start of the window,
                                    not tokens remaining at the end)
-        RESERVE_FLOOR_TOKENS    – always keep this many tokens free for the model's
+        RESERVE_FLOOR_TOKENS    - always keep this many tokens free for the model's
                                   reply; sets a hard flush limit at
                                   context_window_tokens - reserve_floor_tokens
-        SYSTEM_PROMPT           – system message injected at the flush turn
-        USER_PROMPT             – user message injected at the flush turn
+        SYSTEM_PROMPT           - system message injected at the flush turn
+        USER_PROMPT             - user message injected at the flush turn
     """
 
     model_config = SettingsConfigDict(
         env_prefix="OPENMEMORY_COMPACTION__",
-        env_file=".env",
+        env_file=_env_file_paths(),
         extra="ignore",
     )
 
@@ -189,14 +213,14 @@ class RelationsConfig(BaseSettings):
     """Relation graph configuration.
 
     Environment variables (prefix: OPENMEMORY_RELATIONS__):
-        DEDUP_THRESHOLD – cosine similarity above which two triples are
-                          considered semantic duplicates (0.0–1.0).
+        DEDUP_THRESHOLD - cosine similarity above which two triples are
+                          considered semantic duplicates (0.0-1.0).
                           Set to 1.0 to disable semantic dedup (exact-match only).
     """
 
     model_config = SettingsConfigDict(
         env_prefix="OPENMEMORY_RELATIONS__",
-        env_file=".env",
+        env_file=_env_file_paths(),
         extra="ignore",
     )
 
@@ -207,13 +231,13 @@ class MCPConfig(BaseSettings):
     """MCP server configuration.
 
     Environment variables (prefix: OPENMEMORY_MCP__):
-        HOST – host address the server binds to
-        PORT – TCP port the server listens on
+        HOST - host address the server binds to
+        PORT - TCP port the server listens on
     """
 
     model_config = SettingsConfigDict(
         env_prefix="OPENMEMORY_MCP__",
-        env_file=".env",
+        env_file=_env_file_paths(),
         extra="ignore",
     )
 
@@ -225,14 +249,14 @@ class BootstrapConfig(BaseSettings):
     """Bootstrap injection configuration.
 
     Environment variables (prefix: OPENMEMORY_BOOTSTRAP__):
-        MAX_CHARS_PER_FILE       – max chars per injected file before truncation
-        MAX_TOTAL_CHARS          – max chars across all injected files
-        INJECT_LONG_TERM_MEMORY  – inject MEMORY.md
-        INJECT_USER_PROFILE      – inject USER.md
-        INJECT_AGENTS            – inject AGENTS.md
-        INJECT_DAILY_LOGS        – inject today's/yesterday's daily logs
-        INJECT_RELATIONS         – inject RELATIONS.md
-        SYNC_RELATIONS_ON_BOOTSTRAP – reconcile SQLite relations table from
+        MAX_CHARS_PER_FILE       - max chars per injected file before truncation
+        MAX_TOTAL_CHARS          - max chars across all injected files
+        INJECT_LONG_TERM_MEMORY  - inject MEMORY.md
+        INJECT_USER_PROFILE      - inject USER.md
+        INJECT_AGENTS            - inject AGENTS.md
+        INJECT_DAILY_LOGS        - inject today's/yesterday's daily logs
+        INJECT_RELATIONS         - inject RELATIONS.md
+        SYNC_RELATIONS_ON_BOOTSTRAP - reconcile SQLite relations table from
                                       RELATIONS.md before injecting context.
                                       Useful when a user manually edits
                                       RELATIONS.md outside the agent (e.g. in a
@@ -244,7 +268,7 @@ class BootstrapConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="OPENMEMORY_BOOTSTRAP__",
-        env_file=".env",
+        env_file=_env_file_paths(),
         extra="ignore",
     )
 
@@ -282,7 +306,7 @@ class OpenMemoryConfig(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="OPENMEMORY_",
-        env_file=".env",
+        env_file=_env_file_paths(),
         env_nested_delimiter="__",
         extra="ignore",
     )

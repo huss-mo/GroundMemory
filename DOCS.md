@@ -121,6 +121,23 @@ OPENMEMORY_WORKSPACE=my-project openmemory-mcp
 # → listening on http://0.0.0.0:4242/mcp
 ```
 
+**Configuration for pip installs**
+
+OpenMemory reads config from `~/.openmemory/` - the same directory where workspace data lives. Place your config files there once and they'll be found regardless of which directory you run `openmemory-mcp` from:
+
+```
+~/.openmemory/
+├── .env                  ← environment-variable style config
+├── openmemory.yaml       ← YAML style config
+└── default/              ← workspace data (auto-created on first run)
+    ├── MEMORY.md
+    └── ...
+```
+
+Both `.env` and `openmemory.yaml` are optional - use whichever format you prefer (or neither, and set env vars directly). Environment variables always take priority over config files.
+
+**A cwd-level config file (`./openmemory.yaml` or `./.env`) is also checked** as a fallback, which is useful for per-project overrides in dev mode.
+
 ### Embedding Providers
 
 OpenMemory supports three embedding providers. You can switch between them at any time by changing `OPENMEMORY_EMBEDDING__PROVIDER` (or `embedding.provider` in `openmemory.yaml`). No data migration is required.
@@ -637,7 +654,16 @@ No configuration file is required. With no config, OpenMemory uses BM25-only sea
 
 ### openmemory.yaml Reference
 
-Place `openmemory.yaml` in your project root (or cwd). Settings here are overridden by environment variables, which in turn are overridden by constructor kwargs.
+**Config file search order (first match wins):**
+
+| Location | Resolved path | Use case |
+|---|---|---|
+| `$OPENMEMORY_ROOT_DIR/openmemory.yaml` | `~/.openmemory/openmemory.yaml` (pip) or `/data/openmemory.yaml` → `./data/openmemory.yaml` on host (Docker) | Global user config — recommended for pip installs and Docker |
+| `./openmemory.yaml` | cwd at process start | Per-project override in dev mode |
+
+The same search order applies to `.env` files (`$OPENMEMORY_ROOT_DIR/.env` then `./.env`).
+
+Settings in these files are overridden by environment variables, which in turn are overridden by constructor kwargs.
 
 ```yaml
 # ---------------------------------------------------------------------------
@@ -854,5 +880,5 @@ All settings are available as environment variables using the `OPENMEMORY_` pref
 **Configuration priority (highest wins):**
 
 ```
-constructor kwargs  >  environment variables  >  .env file  >  openmemory.yaml  >  built-in defaults
+constructor kwargs  >  environment variables  >  $OPENMEMORY_ROOT_DIR/.env / ./.env  >  $OPENMEMORY_ROOT_DIR/openmemory.yaml / ./openmemory.yaml  >  built-in defaults
 ```

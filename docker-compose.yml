@@ -1,6 +1,6 @@
 services:
   # ---------------------------------------------------------------------------
-  # OpenMemory MCP Server — primary workspace
+  # OpenMemory MCP Server - primary workspace
   #
   # Usage:
   #   cp .env.example .env   # configure your embedding provider (optional)
@@ -27,7 +27,7 @@ services:
       # Copy .env.example to .env and set your values.
       # At minimum, OPENMEMORY_WORKSPACE controls which subdirectory is used.
       #
-      # Embedding providers (set in .env — no rebuild required):
+      # Embedding providers (set in .env - no rebuild required):
       #   BM25-only (default):  OPENMEMORY_EMBEDDING__PROVIDER=none
       #   OpenAI-compatible API: OPENMEMORY_EMBEDDING__PROVIDER=openai
       #                          OPENMEMORY_EMBEDDING__BASE_URL=http://...
@@ -40,7 +40,7 @@ services:
       OPENMEMORY_WORKSPACE: default
 
   # ---------------------------------------------------------------------------
-  # Second workspace example — uncomment to run a second isolated workspace
+  # Second workspace example - uncomment to run a second isolated workspace
   # on a different port (useful for separate projects or personas).
   #
   # MCP endpoint: http://localhost:4243/mcp
