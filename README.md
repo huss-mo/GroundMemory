@@ -95,6 +95,33 @@ Additional capabilities:
 
 ---
 
+## How OpenMemory Compares
+
+Comparison reflects publicly documented features as of MAR-2026. Submit a PR if anything is inaccurate.
+
+| Feature | OpenMemory | Mem0 | Letta | memsearch | Zep |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Zero-setup (no API key, no GPU) | ✅ | — | — | — | — |
+| Local-first / offline | ✅ | — | — | Partial¹ | — |
+| Human-readable Markdown memory | ✅ | — | — | ✅ | — |
+| Structured memory tiers | ✅ | ✅² | ✅³ | — | — |
+| Hybrid BM25 + vector search | ✅ | — | — | ✅ | ✅ |
+| Entity relation graph | ✅ | ✅ | — | — | ✅ |
+| MCP-native server | ✅ | Partial⁴ | Partial⁵ | — | — |
+| Compaction hooks | ✅ | — | ✅ | — | — |
+| Temporal knowledge graph | —⁶ | — | — | — | ✅ |
+| Full agent framework | — | — | ✅ | — | — |
+| Managed cloud service | — | ✅ | ✅ | — | ✅ |
+
+¹ memsearch supports local ONNX embeddings + Milvus Lite, but requires initial model download </br>
+² Mem0 organizes memory into Conversation, Session, User, and Organizational layers </br>
+³ Letta uses Core Memory blocks (in-context) + Archival Memory (vector DB) + Conversation Search </br>
+⁴ Mem0 offers an MCP integration but the primary interface is the Python/Node SDK </br>
+⁵ Letta agents can consume external MCP servers as tools; Letta itself is not an MCP server </br>
+⁶ OpenMemory timestamps all relations but does not support date-range queries.
+
+---
+
 ## Tools
 
 OpenMemory exposes 9 tools via MCP and the Python API: `memory_bootstrap`, `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, `memory_replace_text`, `memory_replace_lines`, and `memory_relate`.
