@@ -5,16 +5,16 @@ import uuid
 
 import pytest
 
-from openmemory.config import BootstrapConfig, EmbeddingConfig, OpenMemoryConfig, SearchConfig
-from openmemory.core.relations import (
+from groundmemory.config import BootstrapConfig, EmbeddingConfig, groundmemoryConfig, SearchConfig
+from groundmemory.core.relations import (
     RELATION_LINE_RE,
     _relation_id,
     add_relation,
     parse_relations_from_file,
     sync_relations_from_file,
 )
-from openmemory.session import MemorySession
-from openmemory.tools.memory_replace import _validate_relations_replacement
+from groundmemory.session import MemorySession
+from groundmemory.tools.memory_replace import _validate_relations_replacement
 
 _EM = "\u2014"  # em dash used in RELATIONS.md format
 
@@ -26,7 +26,7 @@ _EM = "\u2014"  # em dash used in RELATIONS.md format
 
 def _make_session(tmp_path, **bootstrap_kwargs) -> MemorySession:
     bootstrap = BootstrapConfig(**bootstrap_kwargs) if bootstrap_kwargs else BootstrapConfig()
-    cfg = OpenMemoryConfig(
+    cfg = groundmemoryConfig(
         root_dir=tmp_path,
         workspace="test",
         embedding=EmbeddingConfig(provider="none"),
@@ -563,7 +563,7 @@ class TestBootstrapSyncRelations:
 class TestSyncTriggerRelations:
     def test_sync_file_syncs_relations(self, session):
         """sync_file on RELATIONS.md must reconcile the SQLite relations table."""
-        from openmemory.core.sync import sync_file
+        from groundmemory.core.sync import sync_file
 
         _write_relations(session, "- [Alice] --leads--> [Team]\n")
         assert len(session.index.get_all_relations()) == 0
@@ -588,7 +588,7 @@ class TestSyncTriggerRelations:
 
     def test_sync_file_removes_deleted_relation(self, session):
         """After removing a line from RELATIONS.md, sync_file removes the SQLite row."""
-        from openmemory.core.sync import sync_file
+        from groundmemory.core.sync import sync_file
 
         # First sync: add two relations
         _write_relations(session, "- [A] --b--> [C]\n- [D] --e--> [F]\n")
@@ -612,7 +612,7 @@ class TestSyncTriggerRelations:
 
     def test_sync_non_relations_file_does_not_touch_relations_table(self, session):
         """sync_file on USER.md must not alter the relations table."""
-        from openmemory.core.sync import sync_file
+        from groundmemory.core.sync import sync_file
 
         session.workspace.user_file.write_text("Some user info.\n", encoding="utf-8")
         _write_relations(session, "- [Alice] --leads--> [Team]\n")
@@ -648,18 +648,18 @@ class TestBootstrapConfigDefault:
         assert cfg.sync_relations_on_bootstrap is False
 
     def test_env_var_sets_true(self, monkeypatch):
-        """OPENMEMORY_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP=true must be honoured."""
-        monkeypatch.setenv("OPENMEMORY_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP", "true")
-        import openmemory.config as _cfg_mod
+        """groundmemory_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP=true must be honoured."""
+        monkeypatch.setenv("groundmemory_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP", "true")
+        import groundmemory.config as _cfg_mod
 
-        monkeypatch.setattr(_cfg_mod, "_load_yaml_config", lambda filename="openmemory.yaml": {})
-        cfg = OpenMemoryConfig.auto()
+        monkeypatch.setattr(_cfg_mod, "_load_yaml_config", lambda filename="groundmemory.yaml": {})
+        cfg = groundmemoryConfig.auto()
         assert cfg.bootstrap.sync_relations_on_bootstrap is True
 
     def test_env_var_sets_false(self, monkeypatch):
-        monkeypatch.setenv("OPENMEMORY_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP", "false")
-        import openmemory.config as _cfg_mod
+        monkeypatch.setenv("groundmemory_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP", "false")
+        import groundmemory.config as _cfg_mod
 
-        monkeypatch.setattr(_cfg_mod, "_load_yaml_config", lambda filename="openmemory.yaml": {})
-        cfg = OpenMemoryConfig.auto()
+        monkeypatch.setattr(_cfg_mod, "_load_yaml_config", lambda filename="groundmemory.yaml": {})
+        cfg = groundmemoryConfig.auto()
         assert cfg.bootstrap.sync_relations_on_bootstrap is False

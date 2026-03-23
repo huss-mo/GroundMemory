@@ -1,15 +1,15 @@
-<img src="https://raw.githubusercontent.com/huss-mo/OpenMemory/master/_assets/icon.png" alt="om logo" width="140">
+<img src="https://raw.githubusercontent.com/huss-mo/GroundMemory/master/_assets/icon.png" alt="om logo" width="140">
 
-# OpenMemory
+# GroundMemory
 
 **Persistent, semantic memory for AI agents - mcp-native, local-first, framework-agnostic, production-ready.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-316%20passing-brightgreen.svg)](#running-the-test-suite)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![GitHub repo size](https://img.shields.io/github/repo-size/huss-mo/OpenMemory)
-![GitHub language count](https://img.shields.io/github/languages/count/huss-mo/OpenMemory)
-![GitHub top language](https://img.shields.io/github/languages/top/huss-mo/OpenMemory)
+![GitHub repo size](https://img.shields.io/github/repo-size/huss-mo/GroundMemory)
+![GitHub language count](https://img.shields.io/github/languages/count/huss-mo/GroundMemory)
+![GitHub top language](https://img.shields.io/github/languages/top/huss-mo/GroundMemory)
 
 ---
 
@@ -18,7 +18,7 @@
 ### Option 1 - Docker (Recommended)
 
 ```bash
-git clone https://github.com/huss-mo/OpenMemory && cd OpenMemory
+git clone https://github.com/huss-mo/GroundMemory && cd GroundMemory
 docker compose up -d
 # → listening on http://0.0.0.0:4242/mcp
 ```
@@ -26,7 +26,7 @@ docker compose up -d
 ### Option 2 - pip
 
 ```bash
-pip install openmemory-ai && openmemory-mcp
+pip install groundmemory && groundmemory-mcp
 # → listening on http://0.0.0.0:4242/mcp
 ```
 
@@ -35,7 +35,7 @@ pip install openmemory-ai && openmemory-mcp
 ```json
 {
   "mcpServers": {
-    "openmemory": {
+    "GroundMemory": {
       "url": "http://<server-ip>:4242/mcp"
     }
   }
@@ -52,7 +52,7 @@ For installation options, embedding providers, multiple workspaces, and the Pyth
 
 ## What Becomes Possible
 
-Without memory, every session starts from zero. With OpenMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with.
+Without memory, every session starts from zero. With GroundMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with.
 
 **A coding assistant that doesn't repeat itself.** It remembers your stack, your preferred patterns, the architectural decisions you've already made, and the approaches you've already ruled out - so it stops re-suggesting the same things.
 
@@ -66,11 +66,11 @@ Without memory, every session starts from zero. With OpenMemory, agents can main
 
 ---
 
-## What OpenMemory Does
+## What GroundMemory Does
 
 Most agents forget everything the moment a conversation ends. They ask the same questions again, repeat the same mistakes, and lose track of the user's preferences and ongoing work. This is not a model limitation - it is missing infrastructure.
 
-OpenMemory provides that infrastructure. It gives your agent a structured, searchable memory that persists across sessions, organised into distinct tiers with clear ownership:
+GroundMemory provides that infrastructure. It gives your agent a structured, searchable memory that persists across sessions, organised into distinct tiers with clear ownership:
 
 | File | Purpose |
 |---|---|
@@ -85,19 +85,19 @@ At session start, all of these files are assembled into a compact system prompt 
 Additional capabilities:
 
 - **Hybrid search** - BM25 keyword scoring and vector cosine similarity are combined and re-ranked in a single query, so recall is accurate even when the wording differs from what was stored.
-- **Zero-setup mode** - with `provider: none`, OpenMemory runs entirely on SQLite with FTS5. No API key, no GPU, no extra dependencies.
+- **Zero-setup mode** - with `provider: none`, GroundMemory runs entirely on SQLite with FTS5. No API key, no GPU, no extra dependencies.
 - **Pluggable embedding providers** - swap between a local sentence-transformers model, any OpenAI-compatible endpoint (OpenAI, Ollama, LM Studio, LiteLLM), or BM25-only without touching your agent code.
 - **Workspace isolation** - each project, user, or agent gets its own directory-backed workspace with independent memory, relations, and daily logs.
 - **Relation graph with semantic deduplication** - the graph automatically suppresses near-duplicate triples using configurable cosine similarity thresholding.
-- **Compaction hooks** - when a session approaches the context window limit, OpenMemory emits structured prompts that instruct the agent to flush important facts to storage before the window rolls over.
+- **Compaction hooks** - when a session approaches the context window limit, GroundMemory emits structured prompts that instruct the agent to flush important facts to storage before the window rolls over.
 
 ---
 
-## How OpenMemory Compares
+## How GroundMemory Compares
 
 Comparison reflects publicly documented features as of MAR-2026. Submit a PR if anything is inaccurate.
 
-| Feature | OpenMemory | Mem0 | Letta | memsearch | Zep |
+| Feature | GroundMemory | Mem0 | Letta | memsearch | Zep |
 |---|:---:|:---:|:---:|:---:|:---:|
 | Zero-setup (no API key, no GPU) | ✅ | — | — | — | — |
 | Local-first / offline | ✅ | — | — | Partial¹ | — |
@@ -116,13 +116,13 @@ Comparison reflects publicly documented features as of MAR-2026. Submit a PR if 
 ³ Letta uses Core Memory blocks (in-context) + Archival Memory (vector DB) + Conversation Search </br>
 ⁴ Mem0 offers an MCP integration but the primary interface is the Python/Node SDK </br>
 ⁵ Letta agents can consume external MCP servers as tools; Letta itself is not an MCP server </br>
-⁶ OpenMemory timestamps all relations but does not support date-range queries.
+⁶ GroundMemory timestamps all relations but does not support date-range queries.
 
 ---
 
 ## Tools
 
-OpenMemory exposes 9 tools via MCP and the Python API: `memory_bootstrap`, `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, `memory_replace_text`, `memory_replace_lines`, and `memory_relate`.
+GroundMemory exposes 9 tools via MCP and the Python API: `memory_bootstrap`, `memory_write`, `memory_search`, `memory_get`, `memory_list`, `memory_delete`, `memory_replace_text`, `memory_replace_lines`, and `memory_relate`.
 
 `MEMORY.md` and all `daily/*.md` files are **append-only** — `memory_delete`, `memory_replace_text`, and `memory_replace_lines` enforce this and will reject edits to those files. Only `USER.md`, `AGENTS.md`, and `RELATIONS.md` are mutable.
 
@@ -173,7 +173,7 @@ For a detailed breakdown of each layer, the full data flow, and the tech stack, 
 
 ### Philosophy
 
-OpenMemory is designed around three values:
+GroundMemory is designed around three values:
 
 1. **Simplicity over features.** Every addition must justify its complexity. A zero-dependency BM25-only mode must always work.
 2. **Offline-first.** The default configuration must not require an API key, a network connection, or a GPU.
@@ -182,8 +182,8 @@ OpenMemory is designed around three values:
 ### Development Setup
 
 ```bash
-git clone https://github.com/huss-mo/OpenMemory.git
-cd OpenMemory
+git clone https://github.com/huss-mo/GroundMemory.git
+cd GroundMemory
 
 # Install with all dev dependencies
 pip install -e ".[dev,local]"
@@ -205,10 +205,10 @@ pytest tests/ -m embeddings
 pytest tests/
 
 # With coverage
-pytest tests/ --cov=openmemory --cov-report=term-missing
+pytest tests/ --cov=GroundMemory --cov-report=term-missing
 ```
 
-Integration tests are marked with `@pytest.mark.embeddings` and require an embedding provider to be configured via `openmemory.yaml` or environment variables.
+Integration tests are marked with `@pytest.mark.embeddings` and require an embedding provider to be configured via `groundmemory.yaml` or environment variables.
 
 ### Submitting a PR
 

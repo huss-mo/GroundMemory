@@ -1,1 +1,0 @@
-"""Adapters — format OpenMemory tool schemas for specific LLM provider APIs."""

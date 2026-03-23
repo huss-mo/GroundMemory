@@ -1,7 +1,7 @@
 """
 examples/openai_agent.py
 ========================
-Minimal example of an OpenAI-powered agent that uses OpenMemory to persist
+Minimal example of an OpenAI-powered agent that uses groundmemory to persist
 information across sessions.
 
 Run
@@ -20,8 +20,8 @@ except ImportError:
     print("openai package not installed.  Run: uv add openai")
     sys.exit(1)
 
-from openmemory.session import MemorySession
-from openmemory.adapters.openai import get_openai_tools, handle_tool_calls, run_agent_loop
+from groundmemory.session import MemorySession
+from groundmemory.adapters.openai import get_openai_tools, handle_tool_calls, run_agent_loop
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -31,7 +31,7 @@ session = MemorySession.create("openai_example")
 
 # Sync the workspace on startup so the index is up to date.
 stats = session.sync()
-print(f"[OpenMemory] Synced workspace: {stats}")
+print(f"[groundmemory] Synced workspace: {stats}")
 
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -52,7 +52,7 @@ messages: list[dict] = [{"role": "system", "content": system_prompt}]
 # Interactive chat loop
 # ---------------------------------------------------------------------------
 
-print("OpenMemory + OpenAI demo.  Type 'quit' to exit.\n")
+print("groundmemory + OpenAI demo.  Type 'quit' to exit.\n")
 
 while True:
     try:
@@ -73,7 +73,7 @@ while True:
     approx_tokens = sum(len(m.get("content", "") or "") // 4 for m in messages)
     if session.should_compact(approx_tokens, 128_000):
         prompts = session.compaction_prompts()
-        print("[OpenMemory] Context window approaching limit — triggering memory flush.")
+        print("[groundmemory] Context window approaching limit — triggering memory flush.")
         messages.append({"role": "system", "content": prompts["system"]})
         messages.append({"role": "user", "content": prompts["user"]})
 

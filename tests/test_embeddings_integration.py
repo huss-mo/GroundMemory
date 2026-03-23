@@ -14,17 +14,17 @@ from __future__ import annotations
 import uuid
 import pytest
 
-from openmemory.config import OpenMemoryConfig, EmbeddingConfig, SearchConfig
-from openmemory.session import MemorySession
+from groundmemory.config import groundmemoryConfig, EmbeddingConfig, SearchConfig
+from groundmemory.session import MemorySession
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
-def _load_embeddings_config() -> OpenMemoryConfig:
-    """Load config from openmemory.yaml (or env/defaults)."""
-    return OpenMemoryConfig.auto()
+def _load_embeddings_config() -> groundmemoryConfig:
+    """Load config from groundmemory.yaml (or env/defaults)."""
+    return groundmemoryConfig.auto()
 
 
 def _try_probe_provider(provider) -> str | None:
@@ -44,7 +44,7 @@ def _try_probe_provider(provider) -> str | None:
 @pytest.fixture(scope="module")
 def embeddings_session(tmp_path_factory):
     """
-    A MemorySession backed by the embedding provider from openmemory.yaml.
+    A MemorySession backed by the embedding provider from groundmemory.yaml.
     Skips the entire module if the provider is 'none' or unreachable.
     """
     cfg = _load_embeddings_config()
@@ -54,7 +54,7 @@ def embeddings_session(tmp_path_factory):
 
     # Build a temporary session to probe the provider
     tmp = tmp_path_factory.mktemp("embeddings_integration")
-    probe_cfg = OpenMemoryConfig(
+    probe_cfg = groundmemoryConfig(
         root_dir=tmp,
         workspace="probe",
         embedding=cfg.embedding,
@@ -68,7 +68,7 @@ def embeddings_session(tmp_path_factory):
         pytest.skip(f"Embedding provider unreachable: {err}")
 
     # Create the real session used by tests
-    session_cfg = OpenMemoryConfig(
+    session_cfg = groundmemoryConfig(
         root_dir=tmp,
         workspace="test",
         embedding=cfg.embedding,
@@ -113,7 +113,7 @@ class TestEmbeddingProvider:
 
     def test_similar_texts_have_higher_similarity(self, embeddings_session):
         """Semantically similar texts score higher than unrelated ones."""
-        from openmemory.core.embeddings import cosine_similarity
+        from groundmemory.core.embeddings import cosine_similarity
 
         provider = embeddings_session.provider
         v_base = provider.embed(["machine learning model training"])[0]
@@ -134,7 +134,7 @@ class TestVectorSearch:
         """After syncing content, vector search returns relevant chunks."""
         tmp = tmp_path_factory.mktemp("vector_search")
         cfg = _load_embeddings_config()
-        s_cfg = OpenMemoryConfig(
+        s_cfg = groundmemoryConfig(
             root_dir=tmp,
             workspace="vs-test",
             embedding=cfg.embedding,
@@ -169,7 +169,7 @@ class TestVectorSearch:
         """Vector search matches semantically equivalent queries even without keyword overlap."""
         tmp = tmp_path_factory.mktemp("paraphrase_search")
         cfg = _load_embeddings_config()
-        s_cfg = OpenMemoryConfig(
+        s_cfg = groundmemoryConfig(
             root_dir=tmp,
             workspace="para-test",
             embedding=cfg.embedding,
@@ -212,7 +212,7 @@ class TestVectorSearch:
         paraphrase_query = "breaking apart a large application into smaller independent services"
 
         def _run_search(vector_weight: float) -> list[dict]:
-            s_cfg = OpenMemoryConfig(
+            s_cfg = groundmemoryConfig(
                 root_dir=tmp,
                 workspace=f"hybrid-{int(vector_weight * 100)}",
                 embedding=cfg.embedding,
@@ -249,12 +249,12 @@ class TestSentenceTransformerProvider:
 
     @pytest.fixture(scope="class")
     def provider(self):
-        from openmemory.core.embeddings import SentenceTransformerProvider
+        from groundmemory.core.embeddings import SentenceTransformerProvider
         return SentenceTransformerProvider(model_name="all-MiniLM-L6-v2")
 
     def test_import_no_error(self):
         """sentence-transformers can be imported without error."""
-        from openmemory.core.embeddings import SentenceTransformerProvider  # noqa: F401
+        from groundmemory.core.embeddings import SentenceTransformerProvider  # noqa: F401
 
     def test_model_id(self, provider):
         assert provider.model_id == "sentence-transformers/all-MiniLM-L6-v2"
@@ -289,7 +289,7 @@ class TestEndToEndMemorySearch:
         """End-to-end: write → sync → search using memory_search tool."""
         tmp = tmp_path_factory.mktemp("e2e")
         cfg = _load_embeddings_config()
-        s_cfg = OpenMemoryConfig(
+        s_cfg = groundmemoryConfig(
             root_dir=tmp,
             workspace="e2e-test",
             embedding=cfg.embedding,

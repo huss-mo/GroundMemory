@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures for OpenMemory tests.
+Shared pytest fixtures for groundmemory tests.
 
 All tests use provider="none" (BM25-only, no network calls) by default.
 Tests that need real embeddings are marked with @pytest.mark.embeddings
@@ -10,17 +10,17 @@ from __future__ import annotations
 import uuid
 import pytest
 
-from openmemory.config import (
-    OpenMemoryConfig,
+from groundmemory.config import (
+    groundmemoryConfig,
     EmbeddingConfig,
     SearchConfig,
 )
-from openmemory.session import MemorySession
+from groundmemory.session import MemorySession
 
 
 def _make_session(tmp_path, provider="none", **search_kwargs) -> MemorySession:
     """Create an isolated MemorySession backed by a temp directory."""
-    cfg = OpenMemoryConfig(
+    cfg = groundmemoryConfig(
         root_dir=tmp_path,
         workspace="test",
         embedding=EmbeddingConfig(provider=provider),

@@ -1,6 +1,6 @@
 services:
   # ---------------------------------------------------------------------------
-  # OpenMemory MCP Server - primary workspace
+  # groundmemory MCP Server - primary workspace
   #
   # Usage:
   #   cp .env.example .env   # configure your embedding provider (optional)
@@ -9,13 +9,13 @@ services:
   # MCP endpoint: http://localhost:4242/mcp
   # Workspace data: ./data/default/
   # ---------------------------------------------------------------------------
-  openmemory:
+  groundmemory:
     build:
       context: .
       # To include sentence-transformers (local offline embeddings, ~1 GB):
       #   args:
       #     EXTRAS: local
-    image: openmemory:latest
+    image: groundmemory:latest
     restart: unless-stopped
     ports:
       - "4242:4242"
@@ -25,19 +25,19 @@ services:
       - ./data:/data
     env_file:
       # Copy .env.example to .env and set your values.
-      # At minimum, OPENMEMORY_WORKSPACE controls which subdirectory is used.
+      # At minimum, GROUNDMEMORY_WORKSPACE controls which subdirectory is used.
       #
       # Embedding providers (set in .env - no rebuild required):
-      #   BM25-only (default):  OPENMEMORY_EMBEDDING__PROVIDER=none
-      #   OpenAI-compatible API: OPENMEMORY_EMBEDDING__PROVIDER=openai
-      #                          OPENMEMORY_EMBEDDING__BASE_URL=http://...
-      #                          OPENMEMORY_EMBEDDING__API_KEY=sk-...
-      #                          OPENMEMORY_EMBEDDING__MODEL=text-embedding-3-small
+      #   BM25-only (default):  GROUNDMEMORY_EMBEDDING__PROVIDER=none
+      #   OpenAI-compatible API: GROUNDMEMORY_EMBEDDING__PROVIDER=openai
+      #                          GROUNDMEMORY_EMBEDDING__BASE_URL=http://...
+      #                          GROUNDMEMORY_EMBEDDING__API_KEY=sk-...
+      #                          GROUNDMEMORY_EMBEDDING__MODEL=text-embedding-3-small
       #   Local (sentence-transformers): requires rebuild with EXTRAS=local
       - path: .env
         required: false
     environment:
-      OPENMEMORY_WORKSPACE: default
+      GROUNDMEMORY_WORKSPACE: default
 
   # ---------------------------------------------------------------------------
   # Second workspace example - uncomment to run a second isolated workspace
@@ -46,10 +46,10 @@ services:
   # MCP endpoint: http://localhost:4243/mcp
   # Workspace data: ./data/personal/
   # ---------------------------------------------------------------------------
-  # openmemory-personal:
+  # groundmemory-personal:
   #   build:
   #     context: .
-  #   image: openmemory:latest
+  #   image: groundmemory:latest
   #   restart: unless-stopped
   #   ports:
   #     - "4243:4242"
@@ -59,4 +59,4 @@ services:
   #     - path: .env
   #       required: false
   #   environment:
-  #     OPENMEMORY_WORKSPACE: personal
+  #     GROUNDMEMORY_WORKSPACE: personal
