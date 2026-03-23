@@ -64,7 +64,7 @@ When a relation changes (job change, location change, team reassignment), use `s
 
 ```
 # User changed jobs — old works_at should be removed
-memory_relate(subject="Hussein", predicate="works_at", object="One Industry", supersedes=True, note="Previously at iHorizons")
+memory_relate(subject="Alice", predicate="works_at", object="New Corp", supersedes=True, note="Previously at Old Corp")
 
 # User moved cities
 memory_relate(subject="Alice", predicate="lives_in", object="Berlin", supersedes=True)
