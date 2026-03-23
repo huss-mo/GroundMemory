@@ -286,7 +286,7 @@ Once connected, the client has access to 9 memory tools and 1 prompt:
 | `memory_write` | Store a memory in long-term storage (`MEMORY.md`) or today's daily log |
 | `memory_search` | Hybrid semantic + keyword search across all memory tiers |
 | `memory_get` | Read a slice of a workspace file by line range |
-| `memory_list` | List workspace files or preview a specific file |
+| `memory_list` | List workspace files (`target="files"`), list daily log names (`target="daily"`), or preview a specific file (pass `file="MEMORY.md"`) |
 | `memory_delete` | Delete a 1-indexed line range from a mutable workspace file |
 | `memory_replace_text` | Replace the first occurrence of an exact string in a mutable workspace file |
 | `memory_replace_lines` | Replace a 1-indexed inclusive line range in a mutable workspace file |
@@ -438,7 +438,7 @@ Use `session.execute_tool(name, **kwargs)` to call tools programmatically, or pa
 | `memory_write` | Append a memory to long-term storage or today's daily log | `content` | `tier` (default: `long_term`) |
 | `memory_search` | Hybrid semantic + keyword search across all memory tiers | `query` | `top_k`, `source` |
 | `memory_get` | Read a slice of a workspace file by 1-indexed line range | `file` | `start_line`, `end_line` |
-| `memory_list` | List workspace files or preview a specific file | - | `file` |
+| `memory_list` | List workspace files, daily log names, or preview a specific file | `target` (`"files"` or `"daily"`, default: `"files"`) | `file` |
 | `memory_delete` | Tombstone-delete a 1-indexed line range from a mutable file | `file`, `start_line`, `end_line` | - |
 | `memory_replace_text` | Replace the first exact string match in a mutable file | `file`, `search`, `replacement` | - |
 | `memory_replace_lines` | Replace a 1-indexed inclusive line range in a mutable file | `file`, `start_line`, `end_line`, `replacement` | - |
