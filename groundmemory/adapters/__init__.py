@@ -1,0 +1,1 @@
+"""Adapters — format groundmemory tool schemas for specific LLM provider APIs."""

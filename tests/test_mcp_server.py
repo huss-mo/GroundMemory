@@ -1,4 +1,4 @@
-"""Unit tests for openmemory/mcp_server.py.
+"""Unit tests for groundmemory/mcp_server.py.
 
 Strategy
 --------
@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-import openmemory.mcp_server as mcp_mod
+import groundmemory.mcp_server as mcp_mod
 
 
 # ---------------------------------------------------------------------------
@@ -98,8 +98,8 @@ class TestGetSession:
     def test_first_call_creates_session(self):
         mock_session = MagicMock()
         with (
-            patch("openmemory.mcp_server.OpenMemoryConfig") as MockCfg,
-            patch("openmemory.session.MemorySession") as MockSess,
+            patch("groundmemory.mcp_server.groundmemoryConfig") as MockCfg,
+            patch("groundmemory.session.MemorySession") as MockSess,
         ):
             MockCfg.auto.return_value = MagicMock(workspace="test")
             MockSess.create.return_value = mock_session
@@ -123,7 +123,7 @@ class TestGetSession:
         existing = MagicMock()
         mcp_mod._session = existing
 
-        with patch("openmemory.mcp_server.OpenMemoryConfig") as MockCfg:
+        with patch("groundmemory.mcp_server.groundmemoryConfig") as MockCfg:
             result = mcp_mod._get_session()
             MockCfg.auto.assert_not_called()
 
@@ -140,7 +140,7 @@ def mock_session():
     """Patch _get_session() to return a MagicMock for the duration of a test."""
     session = MagicMock()
     session.execute_tool.return_value = _ok()
-    with patch("openmemory.mcp_server._get_session", return_value=session):
+    with patch("groundmemory.mcp_server._get_session", return_value=session):
         yield session
 
 
@@ -435,7 +435,7 @@ class TestMcpMemoryBootstrap:
         assert "No memory context yet" in out
 
     def test_bootstrap_full_content_returned_verbatim(self, mock_session):
-        content = "<!-- OpenMemory bootstrap start -->\n## Your Memory Context\nfacts\n<!-- OpenMemory bootstrap end -->"
+        content = "<!-- groundmemory bootstrap start -->\n## Your Memory Context\nfacts\n<!-- groundmemory bootstrap end -->"
         mock_session.bootstrap.return_value = content
         out = mcp_mod.memory_bootstrap()
         assert out == content

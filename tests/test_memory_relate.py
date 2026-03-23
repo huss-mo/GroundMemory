@@ -4,10 +4,10 @@ from __future__ import annotations
 import uuid
 import pytest
 
-from openmemory.config import OpenMemoryConfig, EmbeddingConfig, SearchConfig, RelationsConfig
-from openmemory.session import MemorySession
-from openmemory.core.embeddings import NullEmbeddingProvider
-from openmemory.core import relations as _graph
+from groundmemory.config import groundmemoryConfig, EmbeddingConfig, SearchConfig, RelationsConfig
+from groundmemory.session import MemorySession
+from groundmemory.core.embeddings import NullEmbeddingProvider
+from groundmemory.core import relations as _graph
 
 
 class TestMemoryRelateBasic:
@@ -159,7 +159,7 @@ class _FixedVectorProvider:
 
 def _make_dedup_session(tmp_path, provider, threshold=0.92):
     """Create a session with a custom provider and dedup threshold."""
-    cfg = OpenMemoryConfig(
+    cfg = groundmemoryConfig(
         root_dir=tmp_path,
         workspace="dedup-test",
         embedding=EmbeddingConfig(provider="none"),
@@ -271,7 +271,7 @@ class TestSemanticDedup:
 
     def test_cosine_similarity_pure_function(self):
         """Unit-test the _cosine_similarity helper directly."""
-        from openmemory.core.relations import _cosine_similarity
+        from groundmemory.core.relations import _cosine_similarity
 
         # Identical vectors → similarity 1.0
         assert _cosine_similarity([1.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)
@@ -346,7 +346,7 @@ class TestMemoryRelateSupersedes:
     def test_supersedes_multiple_old_relations_all_removed(self, session):
         """If multiple prior (subject, predicate) triples exist, all are removed."""
         # Manually insert two rows with the same (subject, predicate)
-        from openmemory.core import relations as _r
+        from groundmemory.core import relations as _r
         ws = session.workspace
         _r.add_relation(
             session.index, ws.relations_file,

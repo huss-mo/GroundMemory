@@ -1,4 +1,4 @@
-# OpenMemory - Documentation
+# GroundMemory - Documentation
 
 This document covers installation, integration guides, configuration reference, and environment variables.
 For a project overview and quick start, see [README.md](README.md).
@@ -7,7 +7,7 @@ For a project overview and quick start, see [README.md](README.md).
 
 ## Table of Contents
 
-- [OpenMemory - Documentation](#openmemory---documentation)
+- [GroundMemory - Documentation](#GroundMemory---documentation)
   - [Table of Contents](#table-of-contents)
   - [Installation \& Configuration](#installation--configuration)
     - [Option 1 - Docker](#option-1---docker)
@@ -25,25 +25,25 @@ For a project overview and quick start, see [README.md](README.md).
   - [Tools Reference](#tools-reference)
   - [Architecture](#architecture)
     - [Architectural Layers](#architectural-layers)
-      - [1. Workspace (`openmemory/core/workspace.py`)](#1-workspace-openmemorycoreworkspacepy)
-      - [2. Memory Storage (`openmemory/core/storage.py`)](#2-memory-storage-openmemorycorestoragepy)
-      - [3. Text Chunker (`openmemory/core/chunker.py`)](#3-text-chunker-openmemorycorechunkerpy)
-      - [4. Embedding Providers (`openmemory/core/embeddings.py`)](#4-embedding-providers-openmemorycoreembeddingspy)
-      - [5. Memory Index (`openmemory/core/index.py`)](#5-memory-index-openmemorycoreindexpy)
-      - [6. Hybrid Search (`openmemory/core/search.py`)](#6-hybrid-search-openmemorycoresearchpy)
-      - [7. Relation Graph (`openmemory/core/relations.py`)](#7-relation-graph-openmemorycorerelationspy)
-      - [8. Sync (`openmemory/core/sync.py`)](#8-sync-openmemorycoresyncpy)
-      - [9. Bootstrap Injector (`openmemory/bootstrap/injector.py`)](#9-bootstrap-injector-openmemorybootstrapinjectorpy)
-      - [10. Compaction Hooks (`openmemory/bootstrap/compaction.py`)](#10-compaction-hooks-openmemorybootstrapcompactionpy)
-      - [11. Tools (`openmemory/tools/`)](#11-tools-openmemorytools)
-      - [12. LLM Adapters (`openmemory/adapters/`)](#12-llm-adapters-openmemoryadapters)
-      - [13. Session (`openmemory/session.py`)](#13-session-openmemorysessionpy)
+      - [1. Workspace (`GroundMemory/core/workspace.py`)](#1-workspace-GroundMemorycoreworkspacepy)
+      - [2. Memory Storage (`GroundMemory/core/storage.py`)](#2-memory-storage-GroundMemorycorestoragepy)
+      - [3. Text Chunker (`GroundMemory/core/chunker.py`)](#3-text-chunker-GroundMemorycorechunkerpy)
+      - [4. Embedding Providers (`GroundMemory/core/embeddings.py`)](#4-embedding-providers-GroundMemorycoreembeddingspy)
+      - [5. Memory Index (`GroundMemory/core/index.py`)](#5-memory-index-GroundMemorycoreindexpy)
+      - [6. Hybrid Search (`GroundMemory/core/search.py`)](#6-hybrid-search-GroundMemorycoresearchpy)
+      - [7. Relation Graph (`GroundMemory/core/relations.py`)](#7-relation-graph-GroundMemorycorerelationspy)
+      - [8. Sync (`GroundMemory/core/sync.py`)](#8-sync-GroundMemorycoresyncpy)
+      - [9. Bootstrap Injector (`GroundMemory/bootstrap/injector.py`)](#9-bootstrap-injector-GroundMemorybootstrapinjectorpy)
+      - [10. Compaction Hooks (`GroundMemory/bootstrap/compaction.py`)](#10-compaction-hooks-GroundMemorybootstrapcompactionpy)
+      - [11. Tools (`GroundMemory/tools/`)](#11-tools-GroundMemorytools)
+      - [12. LLM Adapters (`GroundMemory/adapters/`)](#12-llm-adapters-GroundMemoryadapters)
+      - [13. Session (`GroundMemory/session.py`)](#13-session-GroundMemorysessionpy)
       - [13 (note). Session vs Workspace - not two different things](#13-note-session-vs-workspace---not-two-different-things)
   - [Data Flow](#data-flow)
   - [Tech Stack](#tech-stack)
   - [Configuration](#configuration)
     - [Minimum Config](#minimum-config)
-    - [openmemory.yaml Reference](#openmemoryyaml-reference)
+    - [groundmemory.yaml Reference](#GroundMemoryyaml-reference)
     - [Environment Variables](#environment-variables)
 
 ---
@@ -52,25 +52,25 @@ For a project overview and quick start, see [README.md](README.md).
 
 ### Option 1 - Docker
 
-Docker is the recommended way to run OpenMemory. It requires no Python environment setup and keeps your workspace data in a local `./data` directory.
+Docker is the recommended way to run GroundMemory. It requires no Python environment setup and keeps your workspace data in a local `./data` directory.
 
 ```bash
-git clone https://github.com/huss-mo/OpenMemory
-cd OpenMemory
-cp openmemory/config/.env.example .env
+git clone https://github.com/huss-mo/GroundMemory
+cd GroundMemory
+cp GroundMemory/config/.env.example .env
 docker compose up -d
 # → listening on http://0.0.0.0:4242/mcp
 ```
 
-The default compose file starts a single `openmemory` service using BM25-only search (no embedding API required). Edit `.env` to switch providers - see [Embedding Providers](#embedding-providers) below.
+The default compose file starts a single `GroundMemory` service using BM25-only search (no embedding API required). Edit `.env` to switch providers - see [Embedding Providers](#embedding-providers) below.
 
-To run a **second workspace** on a different port (e.g. for a separate project or user), uncomment the `openmemory-personal` service in `docker-compose.yml`:
+To run a **second workspace** on a different port (e.g. for a separate project or user), uncomment the `GroundMemory-personal` service in `docker-compose.yml`:
 
 ```yaml
-# openmemory-personal:
+# GroundMemory-personal:
 #   build:
 #     context: .
-#   image: openmemory:latest
+#   image: GroundMemory:latest
 #   restart: unless-stopped
 #   ports:
 #     - "4243:4242"
@@ -79,7 +79,7 @@ To run a **second workspace** on a different port (e.g. for a separate project o
 #   env_file:
 #     - .env
 #   environment:
-#     OPENMEMORY_WORKSPACE: personal
+#     GROUNDMEMORY_WORKSPACE: personal
 ```
 
 Workspace data is stored in `./data/<workspace-name>/` on the host and persists across container restarts.
@@ -93,7 +93,7 @@ docker compose build --build-arg EXTRAS=local
 docker compose up -d
 ```
 
-Then set `OPENMEMORY_EMBEDDING__PROVIDER=local` in your `.env`.
+Then set `GROUNDMEMORY_EMBEDDING__PROVIDER=local` in your `.env`.
 
 ### Option 2 - pip
 
@@ -101,86 +101,86 @@ For development or direct integration without Docker:
 
 ```bash
 # BM25-only - no extra dependencies
-pip install openmemory-ai
+pip install groundmemory
 
 # With local sentence-transformers embeddings
-pip install "openmemory-ai[local]"
+pip install "groundmemory[local]"
 ```
 
 Then start the MCP server:
 
 ```bash
-OPENMEMORY_WORKSPACE=my-project openmemory-mcp
+GROUNDMEMORY_WORKSPACE=my-project groundmemory-mcp
 # → listening on http://0.0.0.0:4242/mcp
 ```
 
 **Configuration for pip installs**
 
-OpenMemory reads config from `~/.openmemory/` - the same directory where workspace data lives. Place your config files there once and they'll be found regardless of which directory you run `openmemory-mcp` from:
+GroundMemory reads config from `~/.groundmemory/` - the same directory where workspace data lives. Place your config files there once and they'll be found regardless of which directory you run `groundmemory-mcp` from:
 
 ```
-~/.openmemory/
+~/.groundmemory/
 ├── .env                  ← environment-variable style config
-├── openmemory.yaml       ← YAML style config
+├── groundmemory.yaml       ← YAML style config
 └── default/              ← workspace data (auto-created on first run)
     ├── MEMORY.md
     └── ...
 ```
 
-Both `.env` and `openmemory.yaml` are optional - use whichever format you prefer (or neither, and set env vars directly). Environment variables always take priority over config files.
+Both `.env` and `groundmemory.yaml` are optional - use whichever format you prefer (or neither, and set env vars directly). Environment variables always take priority over config files.
 
-On first run, `openmemory-mcp` automatically copies an annotated example config into `~/.openmemory/openmemory.yaml.example` - the full YAML reference with every option documented. You can also find it in the repository at `openmemory/config/openmemory.yaml.example`.
+On first run, `groundmemory-mcp` automatically copies an annotated example config into `~/.groundmemory/groundmemory.yaml.example` - the full YAML reference with every option documented. You can also find it in the repository at `GroundMemory/config/groundmemory.yaml.example`.
 
 For environment-variable style config, copy the bundled example manually:
 
 ```bash
-cp openmemory/config/.env.example ~/.openmemory/.env
+cp GroundMemory/config/.env.example ~/.groundmemory/.env
 ```
 
-**A cwd-level config file (`./openmemory.yaml` or `./.env`) is also checked** as a fallback, which is useful for per-project overrides in dev mode.
+**A cwd-level config file (`./groundmemory.yaml` or `./.env`) is also checked** as a fallback, which is useful for per-project overrides in dev mode.
 
 ### Embedding Providers
 
-OpenMemory supports three embedding providers. You can switch between them at any time by changing `OPENMEMORY_EMBEDDING__PROVIDER` (or `embedding.provider` in `openmemory.yaml`). No data migration is required.
+GroundMemory supports three embedding providers. You can switch between them at any time by changing `GROUNDMEMORY_EMBEDDING__PROVIDER` (or `embedding.provider` in `groundmemory.yaml`). No data migration is required.
 
 | Provider | Value | Extra install required? | When to use |
 |---|---|---|---|
 | BM25-only | `none` | No | Default. Pure keyword search via SQLite FTS5. Works offline, no API key needed. |
-| OpenAI-compatible API | `openai` | No | Any HTTP embedding API: OpenAI, Ollama, LM Studio, LiteLLM, vLLM, Mistral, etc. Requires `OPENMEMORY_EMBEDDING__BASE_URL` and `OPENMEMORY_EMBEDDING__API_KEY`. |
-| Local sentence-transformers | `local` | Yes - `pip install "openmemory-ai[local]"` or `--build-arg EXTRAS=local` for Docker | Fully offline vector embeddings. Downloads model on first run. |
+| OpenAI-compatible API | `openai` | No | Any HTTP embedding API: OpenAI, Ollama, LM Studio, LiteLLM, vLLM, Mistral, etc. Requires `GROUNDMEMORY_EMBEDDING__BASE_URL` and `GROUNDMEMORY_EMBEDDING__API_KEY`. |
+| Local sentence-transformers | `local` | Yes - `pip install "groundmemory[local]"` or `--build-arg EXTRAS=local` for Docker | Fully offline vector embeddings. Downloads model on first run. |
 
 **`none` - BM25-only (default)**
 
-No configuration needed. OpenMemory uses SQLite FTS5 for all search. Ideal for getting started quickly or for air-gapped environments.
+No configuration needed. GroundMemory uses SQLite FTS5 for all search. Ideal for getting started quickly or for air-gapped environments.
 
 ```bash
-OPENMEMORY_EMBEDDING__PROVIDER=none openmemory-mcp
+GROUNDMEMORY_EMBEDDING__PROVIDER=none groundmemory-mcp
 ```
 
 **`openai` - OpenAI-compatible HTTP API**
 
-Works with any endpoint that follows the OpenAI embeddings API format. No extra Python packages are required - only `httpx`, which is a core dependency already installed with OpenMemory.
+Works with any endpoint that follows the OpenAI embeddings API format. No extra Python packages are required - only `httpx`, which is a core dependency already installed with GroundMemory.
 
 ```bash
 # Real OpenAI
-OPENMEMORY_EMBEDDING__PROVIDER=openai \
-OPENMEMORY_EMBEDDING__API_KEY=sk-... \
-OPENMEMORY_EMBEDDING__MODEL=text-embedding-3-small \
-openmemory-mcp
+GROUNDMEMORY_EMBEDDING__PROVIDER=openai \
+GROUNDMEMORY_EMBEDDING__API_KEY=sk-... \
+GROUNDMEMORY_EMBEDDING__MODEL=text-embedding-3-small \
+groundmemory-mcp
 
 # Ollama (local server, no API key needed)
-OPENMEMORY_EMBEDDING__PROVIDER=openai \
-OPENMEMORY_EMBEDDING__BASE_URL=http://localhost:11434/v1 \
-OPENMEMORY_EMBEDDING__API_KEY=ollama \
-OPENMEMORY_EMBEDDING__MODEL=nomic-embed-text \
-openmemory-mcp
+GROUNDMEMORY_EMBEDDING__PROVIDER=openai \
+GROUNDMEMORY_EMBEDDING__BASE_URL=http://localhost:11434/v1 \
+GROUNDMEMORY_EMBEDDING__API_KEY=ollama \
+GROUNDMEMORY_EMBEDDING__MODEL=nomic-embed-text \
+groundmemory-mcp
 
 # LM Studio
-OPENMEMORY_EMBEDDING__PROVIDER=openai \
-OPENMEMORY_EMBEDDING__BASE_URL=http://localhost:1234/v1 \
-OPENMEMORY_EMBEDDING__API_KEY=lm-studio \
-OPENMEMORY_EMBEDDING__MODEL=nomic-ai/nomic-embed-text-v1.5-GGUF \
-openmemory-mcp
+GROUNDMEMORY_EMBEDDING__PROVIDER=openai \
+GROUNDMEMORY_EMBEDDING__BASE_URL=http://localhost:1234/v1 \
+GROUNDMEMORY_EMBEDDING__API_KEY=lm-studio \
+GROUNDMEMORY_EMBEDDING__MODEL=nomic-ai/nomic-embed-text-v1.5-GGUF \
+groundmemory-mcp
 ```
 
 **`local` - sentence-transformers (offline)**
@@ -189,41 +189,41 @@ Runs a local embedding model entirely on your machine - no network call, no API 
 
 ```bash
 # Install the extra first
-pip install "openmemory-ai[local]"
+pip install "groundmemory[local]"
 
-OPENMEMORY_EMBEDDING__PROVIDER=local \
-OPENMEMORY_EMBEDDING__LOCAL_MODEL=all-MiniLM-L6-v2 \
-openmemory-mcp
+GROUNDMEMORY_EMBEDDING__PROVIDER=local \
+GROUNDMEMORY_EMBEDDING__LOCAL_MODEL=all-MiniLM-L6-v2 \
+groundmemory-mcp
 ```
 
 ---
 
 ## MCP Server
 
-OpenMemory can run as a standalone MCP (Model Context Protocol) server over HTTP, exposing all 8 memory tools to any MCP-compatible client - including Claude Desktop, Cursor, Cline, and custom agents.
+GroundMemory can run as a standalone MCP (Model Context Protocol) server over HTTP, exposing all 8 memory tools to any MCP-compatible client - including Claude Desktop, Cursor, Cline, and custom agents.
 
 Each server instance owns a single workspace. Multiple workspaces require multiple server processes running on different ports.
 
 ### Running the Server
 
-The `openmemory-mcp` command is available after installing OpenMemory (MCP support is included by default).
+The `groundmemory-mcp` command is available after installing GroundMemory (MCP support is included by default).
 
 ```bash
 # Default: workspace "default", host 0.0.0.0, port 4242
-openmemory-mcp
+groundmemory-mcp
 
 # Custom workspace
-OPENMEMORY_WORKSPACE=my-project openmemory-mcp
+GROUNDMEMORY_WORKSPACE=my-project groundmemory-mcp
 
 # Custom host and port
-OPENMEMORY_MCP_HOST=127.0.0.1 OPENMEMORY_MCP_PORT=9000 openmemory-mcp
+GROUNDMEMORY_MCP_HOST=127.0.0.1 GROUNDMEMORY_MCP_PORT=9000 groundmemory-mcp
 ```
 
 The server starts at `http://<host>:<port>/mcp` using the `streamable-http` MCP transport.
 
 ### Client Configuration
 
-OpenMemory speaks standard MCP over HTTP, so any MCP-compatible client works. The table below shows the most common categories and examples — the list is not exhaustive.
+GroundMemory speaks standard MCP over HTTP, so any MCP-compatible client works. The table below shows the most common categories and examples — the list is not exhaustive.
 
 | Category | Examples | How to connect |
 |---|---|---|
@@ -234,7 +234,7 @@ OpenMemory speaks standard MCP over HTTP, so any MCP-compatible client works. Th
 ```json
 {
   "mcpServers": {
-    "openmemory": {
+    "GroundMemory": {
       "url": "http://<server-ip>:4242/mcp"
     }
   }
@@ -265,7 +265,7 @@ Once connected, the client has access to 9 memory tools and 1 prompt:
 
 ### Bootstrap - Loading Memory at Session Start
 
-OpenMemory's memory context (long-term facts, user profile, agent instructions, entity graph, daily logs) needs to be loaded at the start of each session. Two mechanisms are provided:
+GroundMemory's memory context (long-term facts, user profile, agent instructions, entity graph, daily logs) needs to be loaded at the start of each session. Two mechanisms are provided:
 
 **Tool-based bootstrap (all clients)**
 
@@ -288,14 +288,14 @@ The content returned by both mechanisms is identical.
 
 ## Connecting to Your AI Agent Using The Python API
 
-OpenMemory exposes standard JSON schemas for function calling, compatible with OpenAI and Anthropic out of the box. The primary export is `ALL_TOOLS` - a list of `(schema, run)` pairs. Pass the schemas to the model so it knows what tools are available; when the model calls a tool, dispatch it back through the paired `run` function (or use `session.execute_tool` directly). Both paths are shown below.
+GroundMemory exposes standard JSON schemas for function calling, compatible with OpenAI and Anthropic out of the box. The primary export is `ALL_TOOLS` - a list of `(schema, run)` pairs. Pass the schemas to the model so it knows what tools are available; when the model calls a tool, dispatch it back through the paired `run` function (or use `session.execute_tool` directly). Both paths are shown below.
 
 ### OpenAI
 
 ```python
 from openai import OpenAI
-from openmemory.session import MemorySession
-from openmemory.tools import ALL_TOOLS
+from GroundMemory.session import MemorySession
+from GroundMemory.tools import ALL_TOOLS
 import json
 
 session = MemorySession.create("my-project")
@@ -313,7 +313,7 @@ response = client.chat.completions.create(
     tools=tools,
 )
 
-# Dispatch tool calls the model makes back to OpenMemory
+# Dispatch tool calls the model makes back to GroundMemory
 for call in response.choices[0].message.tool_calls or []:
     result = session.execute_tool(call.function.name, **json.loads(call.function.arguments))
     print(result)
@@ -323,8 +323,8 @@ for call in response.choices[0].message.tool_calls or []:
 
 ```python
 from anthropic import Anthropic
-from openmemory.session import MemorySession
-from openmemory.tools import ALL_TOOLS
+from GroundMemory.session import MemorySession
+from GroundMemory.tools import ALL_TOOLS
 
 session = MemorySession.create("my-project")
 client = Anthropic()
@@ -347,7 +347,7 @@ response = client.messages.create(
     tools=tools,
 )
 
-# Dispatch tool use blocks back to OpenMemory
+# Dispatch tool use blocks back to GroundMemory
 for block in response.content:
     if block.type == "tool_use":
         result = session.execute_tool(block.name, **block.input)
@@ -367,7 +367,7 @@ for block in response.content:
 ## Python API Example
 
 ```python
-from openmemory.session import MemorySession
+from GroundMemory.session import MemorySession
 
 # Create (or reopen) a named workspace
 session = MemorySession.create("my-project")
@@ -390,7 +390,7 @@ for item in result["data"]["results"]:
 system_prompt = session.bootstrap()
 ```
 
-`MemorySession.create("my-project")` creates a workspace directory at `~/.openmemory/my-project/` on first run, seeding all required files. Subsequent calls reopen the same workspace.
+`MemorySession.create("my-project")` creates a workspace directory at `~/.groundmemory/my-project/` on first run, seeding all required files. Subsequent calls reopen the same workspace.
 
 ---
 
@@ -437,13 +437,13 @@ Use `session.execute_tool(name, **kwargs)` to call tools programmatically, or pa
 
 ### Architectural Layers
 
-#### 1. Workspace (`openmemory/core/workspace.py`)
+#### 1. Workspace (`GroundMemory/core/workspace.py`)
 `Workspace` is a pure filesystem abstraction for a single memory workspace. On first use it creates the directory tree and seeds the default Markdown files (`MEMORY.md`, `USER.md`, `AGENTS.md`, `RELATIONS.md`). All other layers receive a `Workspace` object to resolve file paths - it never holds runtime state such as a database connection or embedding provider.
 
-The on-disk layout is a **single directory level** under `~/.openmemory`:
+The on-disk layout is a **single directory level** under `~/.groundmemory`:
 
 ```
-~/.openmemory/
+~/.groundmemory/
 └── <workspace_name>/          ← one directory per named workspace
     ├── MEMORY.md              long-term curated memory
     ├── USER.md                stable user profile
@@ -455,13 +455,13 @@ The on-disk layout is a **single directory level** under `~/.openmemory`:
         └── memory.db          SQLite index (chunks + FTS5 + relations + embeddings)
 ```
 
-#### 2. Memory Storage (`openmemory/core/storage.py`)
+#### 2. Memory Storage (`GroundMemory/core/storage.py`)
 Low-level atomic Markdown file I/O. All writes go through a temp-file + rename cycle to prevent partial writes. Provides `write_long_term`, `write_daily`, `read_file`, `delete_lines`, and `list_daily_files`.
 
-#### 3. Text Chunker (`openmemory/core/chunker.py`)
+#### 3. Text Chunker (`GroundMemory/core/chunker.py`)
 Splits Markdown files into overlapping chunks that respect heading boundaries. Each `Chunk` carries a deterministic `chunk_id` (SHA-256 of path + start line + text) and 0-indexed line ranges for precise `memory_get` retrieval.
 
-#### 4. Embedding Providers (`openmemory/core/embeddings.py`)
+#### 4. Embedding Providers (`GroundMemory/core/embeddings.py`)
 Abstract `EmbeddingProvider` with three concrete implementations:
 
 | Provider | Class | Notes |
@@ -472,7 +472,7 @@ Abstract `EmbeddingProvider` with three concrete implementations:
 
 For provider configuration, install commands, and usage examples, see [Embedding Providers](#embedding-providers).
 
-#### 5. Memory Index (`openmemory/core/index.py`)
+#### 5. Memory Index (`GroundMemory/core/index.py`)
 SQLite database (`memory.db`) with five tables:
 
 | Table | Purpose |
@@ -485,7 +485,7 @@ SQLite database (`memory.db`) with five tables:
 
 Vector search is implemented in pure Python (NumPy cosine similarity) so it works everywhere without native extensions. The database runs in WAL (Write-Ahead Logging) mode (`PRAGMA journal_mode=WAL`) for better concurrent read performance.
 
-#### 6. Hybrid Search (`openmemory/core/search.py`)
+#### 6. Hybrid Search (`GroundMemory/core/search.py`)
 Seven-step pipeline:
 1. **Embed** the query via the configured provider.
 2. **Vector search** - cosine similarity over all chunk embeddings → top `k × candidate_multiplier` candidates.
@@ -495,7 +495,7 @@ Seven-step pipeline:
 6. **Graph expansion** - extract entity mentions from top results, attach related relation triples as `relation_context`.
 7. Return top `k` as `SearchResult` objects.
 
-#### 7. Relation Graph (`openmemory/core/relations.py`)
+#### 7. Relation Graph (`GroundMemory/core/relations.py`)
 Single consolidated module for all relation logic. Stores typed entity triples (`subject → predicate → object`) in two places simultaneously:
 - **SQLite** `relations` table - fast structured lookup used by graph expansion during search.
 - **`RELATIONS.md`** - human-readable, editable mirror, injected at bootstrap.
@@ -523,18 +523,18 @@ Format for each line in RELATIONS.md:
 
 Semantic deduplication: before inserting, the new triple is embedded and compared (cosine similarity) against all existing triples. If similarity ≥ `dedup_threshold` (default 0.92) the write is skipped and the existing triple is returned.
 
-#### 8. Sync (`openmemory/core/sync.py`)
+#### 8. Sync (`GroundMemory/core/sync.py`)
 Keeps the SQLite index consistent with the Markdown files using SHA-256 content hashing (not timestamps). `sync_workspace` walks all files and re-indexes changed ones. `sync_file` force-syncs a single file - called immediately after every `memory_write` so new content is searchable within the same session.
 
-#### 9. Bootstrap Injector (`openmemory/bootstrap/injector.py`)
+#### 9. Bootstrap Injector (`GroundMemory/bootstrap/injector.py`)
 Assembles a system-prompt block from workspace files, respecting per-file and total character budgets (`max_chars_per_file`, `max_total_chars`). Truncated files get a visible `[TRUNCATED - use memory_get to read the rest]` marker. Injects (in order): long-term memory, user profile, agent instructions, relation graph, yesterday's and today's daily logs.
 
-#### 10. Compaction Hooks (`openmemory/bootstrap/compaction.py`)
+#### 10. Compaction Hooks (`GroundMemory/bootstrap/compaction.py`)
 `should_flush(current_tokens, context_window, cfg)` returns `True` when the remaining context budget drops below the configured threshold. `get_compaction_prompts(cfg)` returns the `{system, user}` messages the agent uses to flush important facts to storage before the window is summarised.
 
-> **Python API only.** Compaction hooks are only meaningful when you control the message loop yourself - i.e. when using the Python API directly (via `session.should_compact()` and `session.compaction_prompts()`). When OpenMemory is running as an MCP server, it has no visibility into the client's conversation history or token usage, so compaction cannot be triggered automatically. In that case, compaction is the responsibility of the MCP client or agent framework.
+> **Python API only.** Compaction hooks are only meaningful when you control the message loop yourself - i.e. when using the Python API directly (via `session.should_compact()` and `session.compaction_prompts()`). When GroundMemory is running as an MCP server, it has no visibility into the client's conversation history or token usage, so compaction cannot be triggered automatically. In that case, compaction is the responsibility of the MCP client or agent framework.
 
-#### 11. Tools (`openmemory/tools/`)
+#### 11. Tools (`GroundMemory/tools/`)
 Eight JSON-schema-described tools exposed to the LLM via function calling:
 
 | Tool | File written | Notes |
@@ -548,7 +548,7 @@ Eight JSON-schema-described tools exposed to the LLM via function calling:
 | `memory_replace_lines` | Mutable files only | Replaces a 1-indexed inclusive line range in-place; re-indexes. Rejected on `MEMORY.md`/`daily/*.md`. When file is `RELATIONS.md`, validates replacement format via `validate_relations_replacement` and reconciles SQLite. |
 | `memory_relate` | `RELATIONS.md` + SQLite | Semantic dedup before insert. Pass `supersedes=True` to replace all prior `(subject, predicate)` triples (e.g. job change, relocation). |
 
-**Shared utilities (`openmemory/tools/base.py`):**
+**Shared utilities (`GroundMemory/tools/base.py`):**
 
 | Symbol | Description |
 |---|---|
@@ -556,16 +556,16 @@ Eight JSON-schema-described tools exposed to the LLM via function calling:
 | `is_immutable(file)` | Return `True` for `MEMORY.md` and `daily/*.md` |
 | `sync_after_edit(session, resolved, is_relations, base_payload)` | Re-index a file after an in-place edit and return `ok(payload)`. Calls `sync_file` (and, when `is_relations=True`, `sync_relations_from_file`) non-fatally - sync failures add a `warning` key rather than raising. Used by `memory_delete`, `memory_replace_text`, and `memory_replace_lines` to eliminate the duplicated re-index block that each function would otherwise carry. |
 
-#### 12. LLM Adapters (`openmemory/adapters/`)
+#### 12. LLM Adapters (`GroundMemory/adapters/`)
 Thin schema-conversion + agentic-loop helpers:
 - **`adapters/openai.py`** - converts schemas to OpenAI function-calling format; `handle_tool_calls` dispatches tool calls and appends results to the message list; `run_agent_loop` iterates until the model stops calling tools.
 - **`adapters/anthropic.py`** - same for Anthropic's `tool_use` / `tool_result` block format.
 
-#### 13. Session (`openmemory/session.py`)
+#### 13. Session (`GroundMemory/session.py`)
 `MemorySession` is the composition root that holds references to `Workspace`, `MemoryIndex`, and `EmbeddingProvider`. It exposes `execute_tool`, `bootstrap`, `sync`, `should_compact`, and `compaction_prompts` as the primary API surface.
 
 #### 13 (note). Session vs Workspace - not two different things
-`MemorySession` **is** the workspace session - there is no meaningful distinction between the two concepts in OpenMemory. `Workspace` is the low-level filesystem handle; `MemorySession` is the high-level runtime object that wraps it together with the index and embedding provider. When you call `MemorySession.create("my-project")`, it resolves the path as `~/.openmemory/my-project` - a single directory, not a nested one.
+`MemorySession` **is** the workspace session - there is no meaningful distinction between the two concepts in GroundMemory. `Workspace` is the low-level filesystem handle; `MemorySession` is the high-level runtime object that wraps it together with the index and embedding provider. When you call `MemorySession.create("my-project")`, it resolves the path as `~/.groundmemory/my-project` - a single directory, not a nested one.
 
 ---
 
@@ -653,27 +653,27 @@ Next session: session.bootstrap() reloads persisted facts
 
 ### Minimum Config
 
-No configuration file is required. With no config, OpenMemory uses BM25-only search backed by SQLite - no API key, no GPU, no extra packages.
+No configuration file is required. With no config, GroundMemory uses BM25-only search backed by SQLite - no API key, no GPU, no extra packages.
 
 **Finding the example config files**
 
-Both example files are bundled with the package under `openmemory/config/` in the repository:
+Both example files are bundled with the package under `GroundMemory/config/` in the repository:
 
-- `openmemory/config/openmemory.yaml.example` - full YAML reference with every option documented
-- `openmemory/config/.env.example` - all environment variables with descriptions and defaults
+- `GroundMemory/config/groundmemory.yaml.example` - full YAML reference with every option documented
+- `GroundMemory/config/.env.example` - all environment variables with descriptions and defaults
 
-For **pip installs**, `openmemory-mcp` automatically copies `openmemory.yaml.example` into `~/.openmemory/` on first run. For **Docker installs**, copy the `.env.example` manually as shown in the [Docker quick-start](#option-1---docker) above.
+For **pip installs**, `groundmemory-mcp` automatically copies `groundmemory.yaml.example` into `~/.groundmemory/` on first run. For **Docker installs**, copy the `.env.example` manually as shown in the [Docker quick-start](#option-1---docker) above.
 
-### openmemory.yaml Reference
+### groundmemory.yaml Reference
 
 **Config file search order (first match wins):**
 
 | Location | Resolved path | Use case |
 |---|---|---|
-| `$OPENMEMORY_ROOT_DIR/openmemory.yaml` | `~/.openmemory/openmemory.yaml` (pip) or `/data/openmemory.yaml` → `./data/openmemory.yaml` on host (Docker) | Global user config — recommended for pip installs and Docker |
-| `./openmemory.yaml` | cwd at process start | Per-project override in dev mode |
+| `$GROUNDMEMORY_ROOT_DIR/groundmemory.yaml` | `~/.groundmemory/groundmemory.yaml` (pip) or `/data/groundmemory.yaml` → `./data/groundmemory.yaml` on host (Docker) | Global user config — recommended for pip installs and Docker |
+| `./groundmemory.yaml` | cwd at process start | Per-project override in dev mode |
 
-The same search order applies to `.env` files (`$OPENMEMORY_ROOT_DIR/.env` then `./.env`).
+The same search order applies to `.env` files (`$GROUNDMEMORY_ROOT_DIR/.env` then `./.env`).
 
 Settings in these files are overridden by environment variables, which in turn are overridden by constructor kwargs.
 
@@ -682,8 +682,8 @@ Settings in these files are overridden by environment variables, which in turn a
 # General
 # ---------------------------------------------------------------------------
 
-# Root directory for all workspaces (default: ~/.openmemory)
-# root_dir: ~/.openmemory
+# Root directory for all workspaces (default: ~/.groundmemory)
+# root_dir: ~/.groundmemory
 
 # Default workspace name
 # workspace: default
@@ -695,11 +695,11 @@ embedding:
   # provider options:
   #   "none"   - BM25-only, no extra deps, no API key needed (default)
   #   "openai" - any OpenAI-compatible HTTP endpoint, no extra deps needed
-  #   "local"  - sentence-transformers (install with: pip install "openmemory-ai[local]")
+  #   "local"  - sentence-transformers (install with: pip install "groundmemory[local]")
   provider: none
 
   # --- sentence-transformers (provider: local) ---
-  # Requires: pip install "openmemory-ai[local]"  (not installed by default)
+  # Requires: pip install "groundmemory[local]"  (not installed by default)
   # Any model from https://www.sbert.net/docs/pretrained_models.html
   # local_model: all-MiniLM-L6-v2      # fast, 384-dim, good general quality
   # local_model: all-mpnet-base-v2     # slower, 768-dim, higher quality
@@ -813,7 +813,7 @@ compaction:
   # user_prompt: "Review the conversation and write lasting facts to memory. Reply DONE when finished."
 
 # ---------------------------------------------------------------------------
-# MCP server (openmemory-mcp command)
+# MCP server (groundmemory-mcp command)
 # ---------------------------------------------------------------------------
 # mcp:
 #   # Host address the MCP server binds to
@@ -826,71 +826,71 @@ compaction:
 
 ### Environment Variables
 
-All settings are available as environment variables using the `OPENMEMORY_` prefix. Nested keys use double-underscore (`__`) as a separator. Environment variables take priority over `openmemory.yaml`.
+All settings are available as environment variables using the `GROUNDMEMORY_` prefix. Nested keys use double-underscore (`__`) as a separator. Environment variables take priority over `groundmemory.yaml`.
 
 **Embedding**
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENMEMORY_EMBEDDING__PROVIDER` | `none` / `local` / `openai` | `none` |
-| `OPENMEMORY_EMBEDDING__BASE_URL` | OpenAI-compatible endpoint URL | - |
-| `OPENMEMORY_EMBEDDING__API_KEY` | API key for the endpoint | - |
-| `OPENMEMORY_EMBEDDING__MODEL` | Embedding model name (provider: openai) | `text-embedding-3-small` |
-| `OPENMEMORY_EMBEDDING__LOCAL_MODEL` | sentence-transformers model name | `all-MiniLM-L6-v2` |
-| `OPENMEMORY_EMBEDDING__BATCH_SIZE` | Texts per embedding API call | `64` |
+| `GROUNDMEMORY_EMBEDDING__PROVIDER` | `none` / `local` / `openai` | `none` |
+| `GROUNDMEMORY_EMBEDDING__BASE_URL` | OpenAI-compatible endpoint URL | - |
+| `GROUNDMEMORY_EMBEDDING__API_KEY` | API key for the endpoint | - |
+| `GROUNDMEMORY_EMBEDDING__MODEL` | Embedding model name (provider: openai) | `text-embedding-3-small` |
+| `GROUNDMEMORY_EMBEDDING__LOCAL_MODEL` | sentence-transformers model name | `all-MiniLM-L6-v2` |
+| `GROUNDMEMORY_EMBEDDING__BATCH_SIZE` | Texts per embedding API call | `64` |
 
 **Search**
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENMEMORY_SEARCH__TOP_K` | Results returned per query | `6` |
-| `OPENMEMORY_SEARCH__CANDIDATE_MULTIPLIER` | Oversampling factor per path | `4` |
-| `OPENMEMORY_SEARCH__VECTOR_WEIGHT` | Vector score weight (0.0–1.0) | `0.7` |
-| `OPENMEMORY_SEARCH__TEMPORAL_DECAY_RATE` | Score decay per day of age | `0.0` |
-| `OPENMEMORY_SEARCH__MMR_LAMBDA` | MMR diversity (0 = disabled) | `0.0` |
+| `GROUNDMEMORY_SEARCH__TOP_K` | Results returned per query | `6` |
+| `GROUNDMEMORY_SEARCH__CANDIDATE_MULTIPLIER` | Oversampling factor per path | `4` |
+| `GROUNDMEMORY_SEARCH__VECTOR_WEIGHT` | Vector score weight (0.0–1.0) | `0.7` |
+| `GROUNDMEMORY_SEARCH__TEMPORAL_DECAY_RATE` | Score decay per day of age | `0.0` |
+| `GROUNDMEMORY_SEARCH__MMR_LAMBDA` | MMR diversity (0 = disabled) | `0.0` |
 
 **Chunking**
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENMEMORY_CHUNKING__TOKENS` | Target chunk size in tokens | `400` |
-| `OPENMEMORY_CHUNKING__OVERLAP` | Overlap between chunks in tokens | `80` |
+| `GROUNDMEMORY_CHUNKING__TOKENS` | Target chunk size in tokens | `400` |
+| `GROUNDMEMORY_CHUNKING__OVERLAP` | Overlap between chunks in tokens | `80` |
 
 **Relations**
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENMEMORY_RELATIONS__DEDUP_THRESHOLD` | Cosine similarity threshold for dedup | `0.92` |
+| `GROUNDMEMORY_RELATIONS__DEDUP_THRESHOLD` | Cosine similarity threshold for dedup | `0.92` |
 
 **Bootstrap**
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENMEMORY_BOOTSTRAP__MAX_CHARS_PER_FILE` | Max chars per injected file before truncation | `20000` |
-| `OPENMEMORY_BOOTSTRAP__MAX_TOTAL_CHARS` | Max total chars across all injected files | `150000` |
-| `OPENMEMORY_BOOTSTRAP__INJECT_LONG_TERM_MEMORY` | Inject MEMORY.md | `true` |
-| `OPENMEMORY_BOOTSTRAP__INJECT_USER_PROFILE` | Inject USER.md | `true` |
-| `OPENMEMORY_BOOTSTRAP__INJECT_AGENTS` | Inject AGENTS.md | `true` |
-| `OPENMEMORY_BOOTSTRAP__INJECT_DAILY_LOGS` | Inject today's + yesterday's daily logs | `true` |
-| `OPENMEMORY_BOOTSTRAP__INJECT_RELATIONS` | Inject RELATIONS.md | `true` |
-| `OPENMEMORY_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP` | Reconcile SQLite relations from RELATIONS.md at session start. Enable when you edit RELATIONS.md manually outside the agent so that changes are reflected at the next session start. | `false` |
+| `GROUNDMEMORY_BOOTSTRAP__MAX_CHARS_PER_FILE` | Max chars per injected file before truncation | `20000` |
+| `GROUNDMEMORY_BOOTSTRAP__MAX_TOTAL_CHARS` | Max total chars across all injected files | `150000` |
+| `GROUNDMEMORY_BOOTSTRAP__INJECT_LONG_TERM_MEMORY` | Inject MEMORY.md | `true` |
+| `GROUNDMEMORY_BOOTSTRAP__INJECT_USER_PROFILE` | Inject USER.md | `true` |
+| `GROUNDMEMORY_BOOTSTRAP__INJECT_AGENTS` | Inject AGENTS.md | `true` |
+| `GROUNDMEMORY_BOOTSTRAP__INJECT_DAILY_LOGS` | Inject today's + yesterday's daily logs | `true` |
+| `GROUNDMEMORY_BOOTSTRAP__INJECT_RELATIONS` | Inject RELATIONS.md | `true` |
+| `GROUNDMEMORY_BOOTSTRAP__SYNC_RELATIONS_ON_BOOTSTRAP` | Reconcile SQLite relations from RELATIONS.md at session start. Enable when you edit RELATIONS.md manually outside the agent so that changes are reflected at the next session start. | `false` |
 
 **General**
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENMEMORY_ROOT_DIR` | Base directory for all workspaces | `~/.openmemory` |
-| `OPENMEMORY_WORKSPACE` | Default workspace name | `default` |
+| `GROUNDMEMORY_ROOT_DIR` | Base directory for all workspaces | `~/.groundmemory` |
+| `GROUNDMEMORY_WORKSPACE` | Default workspace name | `default` |
 
 **MCP Server**
 
 | Variable | Description | Default |
 |---|---|---|
-| `OPENMEMORY_MCP_HOST` | Host address the server binds to | `0.0.0.0` |
-| `OPENMEMORY_MCP_PORT` | TCP port the server listens on | `4242` |
+| `GROUNDMEMORY_MCP_HOST` | Host address the server binds to | `0.0.0.0` |
+| `GROUNDMEMORY_MCP_PORT` | TCP port the server listens on | `4242` |
 
 **Configuration priority (highest wins):**
 
 ```
-constructor kwargs  >  environment variables  >  $OPENMEMORY_ROOT_DIR/.env / ./.env  >  $OPENMEMORY_ROOT_DIR/openmemory.yaml / ./openmemory.yaml  >  built-in defaults
+constructor kwargs  >  environment variables  >  $GROUNDMEMORY_ROOT_DIR/.env / ./.env  >  $GROUNDMEMORY_ROOT_DIR/groundmemory.yaml / ./groundmemory.yaml  >  built-in defaults
 ```

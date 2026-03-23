@@ -1,6 +1,6 @@
-# OpenMemory — local config files (do not commit secrets or personal settings)
+# GroundMemory — local config files (do not commit secrets or personal settings)
 .env
-openmemory.yaml
+groundmemory.yaml
 
 # Python
 __pycache__/
@@ -37,7 +37,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# OpenMemory runtime data
+# GroundMemory runtime data
 # Docker bind-mount directory created by docker-compose (./data:/data)
 data/
 *.db

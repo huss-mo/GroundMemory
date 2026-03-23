@@ -1,7 +1,7 @@
 """
 examples/anthropic_agent.py
 ===========================
-Minimal example of an Anthropic Claude-powered agent that uses OpenMemory to
+Minimal example of an Anthropic Claude-powered agent that uses groundmemory to
 persist information across sessions.
 
 Run
@@ -20,8 +20,8 @@ except ImportError:
     print("anthropic package not installed.  Run: uv add anthropic")
     sys.exit(1)
 
-from openmemory.session import MemorySession
-from openmemory.adapters.anthropic import get_anthropic_tools, handle_tool_calls, run_agent_loop
+from groundmemory.session import MemorySession
+from groundmemory.adapters.anthropic import get_anthropic_tools, handle_tool_calls, run_agent_loop
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -31,7 +31,7 @@ session = MemorySession.create("anthropic_example")
 
 # Sync the workspace on startup so the index is up to date.
 stats = session.sync()
-print(f"[OpenMemory] Synced workspace: {stats}")
+print(f"[groundmemory] Synced workspace: {stats}")
 
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
@@ -52,7 +52,7 @@ messages: list[dict] = []
 # Interactive chat loop
 # ---------------------------------------------------------------------------
 
-print("OpenMemory + Anthropic demo.  Type 'quit' to exit.\n")
+print("groundmemory + Anthropic demo.  Type 'quit' to exit.\n")
 
 while True:
     try:
@@ -72,7 +72,7 @@ while True:
     approx_tokens = sum(len(str(m.get("content", ""))) // 4 for m in messages)
     if session.should_compact(approx_tokens, 200_000):
         prompts = session.compaction_prompts()
-        print("[OpenMemory] Context window approaching limit — triggering memory flush.")
+        print("[groundmemory] Context window approaching limit — triggering memory flush.")
         # Inject a compact request as a user turn (Anthropic doesn't support system mid-stream)
         messages.append({"role": "user", "content": prompts["user"]})
 

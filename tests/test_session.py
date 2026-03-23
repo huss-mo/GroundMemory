@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import pytest
 
-from openmemory.config import OpenMemoryConfig, EmbeddingConfig, SearchConfig
-from openmemory.session import MemorySession
+from groundmemory.config import groundmemoryConfig, EmbeddingConfig, SearchConfig
+from groundmemory.session import MemorySession
 
 
 class TestSessionCreation:
     def test_create_default_session(self, tmp_path):
-        cfg = OpenMemoryConfig(
+        cfg = groundmemoryConfig(
             root_dir=tmp_path,
             embedding=EmbeddingConfig(provider="none"),
         )
@@ -18,7 +18,7 @@ class TestSessionCreation:
         s.close()
 
     def test_create_named_session(self, tmp_path):
-        cfg = OpenMemoryConfig(
+        cfg = groundmemoryConfig(
             root_dir=tmp_path,
             embedding=EmbeddingConfig(provider="none"),
         )
@@ -28,14 +28,14 @@ class TestSessionCreation:
 
     def test_create_uses_auto_config_when_none_given(self, tmp_path, monkeypatch):
         """MemorySession.create() without a config must not raise."""
-        monkeypatch.setenv("OPENMEMORY_ROOT_DIR", str(tmp_path))
-        monkeypatch.setenv("OPENMEMORY_EMBEDDING__PROVIDER", "none")
+        monkeypatch.setenv("groundmemory_ROOT_DIR", str(tmp_path))
+        monkeypatch.setenv("groundmemory_EMBEDDING__PROVIDER", "none")
         s = MemorySession.create("auto_test")
         assert s is not None
         s.close()
 
     def test_context_manager_closes_session(self, tmp_path):
-        cfg = OpenMemoryConfig(
+        cfg = groundmemoryConfig(
             root_dir=tmp_path,
             embedding=EmbeddingConfig(provider="none"),
         )
@@ -44,7 +44,7 @@ class TestSessionCreation:
             assert r["status"] == "ok"
 
     def test_two_sessions_are_independent(self, tmp_path):
-        cfg = OpenMemoryConfig(
+        cfg = groundmemoryConfig(
             root_dir=tmp_path,
             embedding=EmbeddingConfig(provider="none"),
         )
@@ -60,7 +60,7 @@ class TestSessionCreation:
         s2.close()
 
     def test_reopen_same_session_preserves_data(self, tmp_path):
-        cfg = OpenMemoryConfig(
+        cfg = groundmemoryConfig(
             root_dir=tmp_path,
             workspace="test",
             embedding=EmbeddingConfig(provider="none"),
@@ -78,7 +78,7 @@ class TestSessionCreation:
 
 class TestSessionToolRegistry:
     def test_all_six_tools_registered(self, session):
-        from openmemory.tools import TOOL_RUNNERS
+        from groundmemory.tools import TOOL_RUNNERS
         expected = {
             "memory_write", "memory_search", "memory_get",
             "memory_list", "memory_delete", "memory_relate",
@@ -163,18 +163,18 @@ class TestConfigFromYaml:
             "embedding": {"provider": "none"},
             "search": {"top_k": 12},
         }))
-        cfg = OpenMemoryConfig.from_yaml(cfg_file)
+        cfg = groundmemoryConfig.from_yaml(cfg_file)
         assert cfg.embedding.provider == "none"
         assert cfg.search.top_k == 12
 
     def test_auto_falls_back_to_defaults_without_yaml(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        monkeypatch.delenv("OPENMEMORY_EMBEDDING__BASE_URL", raising=False)
-        monkeypatch.setenv("OPENMEMORY_EMBEDDING__PROVIDER", "none")
-        # Patch _load_yaml_config so the project-root openmemory.yaml is not picked up
-        import openmemory.config as _cfg_module
-        monkeypatch.setattr(_cfg_module, "_load_yaml_config", lambda filename="openmemory.yaml": {})
-        cfg = OpenMemoryConfig.auto()
+        monkeypatch.delenv("groundmemory_EMBEDDING__BASE_URL", raising=False)
+        monkeypatch.setenv("groundmemory_EMBEDDING__PROVIDER", "none")
+        # Patch _load_yaml_config so the project-root groundmemory.yaml is not picked up
+        import groundmemory.config as _cfg_module
+        monkeypatch.setattr(_cfg_module, "_load_yaml_config", lambda filename="groundmemory.yaml": {})
+        cfg = groundmemoryConfig.auto()
         assert cfg.embedding.provider == "none"
 
     def test_env_overrides_yaml(self, tmp_path, monkeypatch):
@@ -183,8 +183,8 @@ class TestConfigFromYaml:
         cfg_file.write_text(yaml.dump({
             "embedding": {"provider": "local", "local_model": "all-MiniLM-L6-v2"},
         }))
-        monkeypatch.setenv("OPENMEMORY_EMBEDDING__PROVIDER", "none")
-        monkeypatch.delenv("OPENMEMORY_EMBEDDING__BASE_URL", raising=False)
-        cfg = OpenMemoryConfig.from_yaml(cfg_file)
+        monkeypatch.setenv("groundmemory_EMBEDDING__PROVIDER", "none")
+        monkeypatch.delenv("groundmemory_EMBEDDING__BASE_URL", raising=False)
+        cfg = groundmemoryConfig.from_yaml(cfg_file)
         # env var should win over YAML
         assert cfg.embedding.provider == "none"

@@ -21,7 +21,7 @@ WORKDIR /app
 # Copy project metadata first for better layer caching
 COPY pyproject.toml ./
 COPY README.md ./
-COPY openmemory/ ./openmemory/
+COPY groundmemory/ ./groundmemory/
 
 # Install the package (and optional extras if requested via build arg)
 ARG EXTRAS
@@ -36,16 +36,16 @@ RUN if [ -n "$EXTRAS" ]; then \
 # ---------------------------------------------------------------------------
 
 # All workspace data is written here - mount a host directory at this path
-ENV OPENMEMORY_ROOT_DIR=/data
+ENV GROUNDMEMORY_ROOT_DIR=/data
 
-# Default workspace name (override via OPENMEMORY_WORKSPACE env var)
-ENV OPENMEMORY_WORKSPACE=default
+# Default workspace name (override via GROUNDMEMORY_WORKSPACE env var)
+ENV GROUNDMEMORY_WORKSPACE=default
 
 # Default to BM25-only; override in .env to switch to openai-compatible API
-ENV OPENMEMORY_EMBEDDING__PROVIDER=none
+ENV GROUNDMEMORY_EMBEDDING__PROVIDER=none
 
 EXPOSE 4242
 
 VOLUME ["/data"]
 
-CMD ["openmemory-mcp"]
+CMD ["groundmemory-mcp"]
