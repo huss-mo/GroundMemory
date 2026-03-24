@@ -284,8 +284,8 @@ class MCPConfig(BaseSettings):
     # Extra Host header values accepted by the MCP server (DNS rebinding protection).
     # "localhost" and "127.0.0.1" are always implicitly allowed.
     # Add your LAN IP (e.g. "192.168.1.50:4242") to allow access from other machines.
-    # Leave empty (default) for local-only access.
-    allowed_hosts: list[str] = Field(default_factory=list)
+    # Separate multiple values with commas. Leave empty (default) for local-only access.
+    allowed_hosts: str = ""
 
 
 class BootstrapConfig(BaseSettings):
