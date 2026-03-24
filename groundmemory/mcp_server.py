@@ -37,11 +37,12 @@ def _get_session():
 # server accepts the incoming Host header. See DOCS.md - Network Access.
 def _build_mcp() -> FastMCP:
     cfg = groundmemoryConfig.auto()
+    allowed_hosts = [h.strip() for h in cfg.mcp.allowed_hosts.split(",") if h.strip()]
     return FastMCP(
         "groundmemory",
         transport_security=TransportSecuritySettings(
             enable_dns_rebinding_protection=True,
-            allowed_hosts=cfg.mcp.allowed_hosts,
+            allowed_hosts=allowed_hosts,
         ),
     )
 

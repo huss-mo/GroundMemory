@@ -62,7 +62,7 @@ class TestMCPConfigDefaults:
         from groundmemory.config import MCPConfig
 
         cfg = MCPConfig()
-        assert cfg.allowed_hosts == []
+        assert cfg.allowed_hosts == ""
 
     def test_host_default_is_localhost(self):
         from groundmemory.config import MCPConfig

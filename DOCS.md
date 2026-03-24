@@ -158,8 +158,7 @@ groundmemory-mcp
 # groundmemory.yaml
 mcp:
   host: 0.0.0.0
-  allowed_hosts:
-    - "192.168.1.50:4242"
+  allowed_hosts: "192.168.1.50:4242"
 ```
 
 For Docker, uncomment the two required network-access lines in `docker-compose.yml` (see the comments in that file).
@@ -875,15 +874,18 @@ compaction:
   #    This is always your machine's IP:port as the client sees it.
   #    "localhost" and "127.0.0.1" are always allowed and do not need to be listed.
   #
-  # Example - allow a single LAN client:
+  # Example - LAN access (single address):
   #   host: "0.0.0.0"
-  #   allowed_hosts:
-  #     - "192.168.1.50:4242"
+  #   allowed_hosts: "192.168.1.50:4242"
   #
-  # Note: allowed_hosts requires exact strings - wildcards and CIDR ranges are
-  # not supported. List each IP:port you want to allow individually.
+  # Example - LAN access (multiple addresses, comma-separated):
+  #   host: "0.0.0.0"
+  #   allowed_hosts: "192.168.1.50:4242,192.168.1.51:4242"
   #
-  # allowed_hosts: []
+  # Note: allowed_hosts requires exact Host header values - wildcards and
+  # CIDR ranges are not supported. Separate multiple values with commas.
+  #
+  # allowed_hosts: ""
   #
   # --- Reverse proxy / forwarded headers ---
   #
@@ -905,8 +907,7 @@ compaction:
   # add the public hostname to allowed_hosts:
   #
   #   host: "127.0.0.1"
-  #   allowed_hosts:
-  #     - "yourdomain.com"
+  #   allowed_hosts: "yourdomain.com"
   #   forwarded_allow_ips: "127.0.0.1"
 ```
 
