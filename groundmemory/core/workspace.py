@@ -24,78 +24,108 @@ Add stable facts about the user here - name, role, working style, preferences.
 _DEFAULT_AGENTS_MD = """\
 # Agent Instructions
 
-## Memory Guidelines
+## Memory Tools
 
-### Choosing the right tier for `memory_write`
+You have two tool modes depending on how this server is configured.
 
-| Tier | File | Use for |
-|------|------|---------|
-| `long_term` | MEMORY.md | Curated facts, decisions, project knowledge - anything that should persist indefinitely |
-| `daily` | daily/YYYY-MM-DD.md | Running session notes, task progress, short-lived context |
-| `user` | USER.md | Stable facts *about the user*: name, role, organisation, location, preferences |
-| `agent` | AGENTS.md | Behavioural rules for future sessions (e.g. "always search before answering") |
+**Normal mode** - four separate tools:
+- `memory_bootstrap` - call once at session start; loads all memory context
+- `memory_read` - search or read a file
+- `memory_write` - append, replace, or delete
+- `memory_relate` - record entity relationships
 
-**Rules of thumb:**
-- When the user reveals something about themselves → `memory_write(tier="user")`
-- When the user states a preference or decision → `memory_write(tier="long_term")` or `memory_write(tier="user")` if it's personal
-- When you need to remember a session task → `memory_write(tier="daily")`
-- When a new behavioural rule is established → `memory_write(tier="agent")`
+**Dispatcher mode** - one tool, `memory_tool(action, args)`:
+- `action="bootstrap"` - same as memory_bootstrap
+- `action="describe", args={"action":"<name>"}` - get full schema for an action. Use once before invoking each tool to understand its args. Overviews below are not comprehensive.
+- `action="read"`, `action="write"`, `action="relate"`, `action="list"` - same as the individual tools
 
-### Search before answering
-- At the start of any task that might benefit from past context, call `memory_search`
-- Before answering questions about people or organisations, check relations too
+---
 
-### Recording relationships
-Use `memory_relate` for directional facts between entities. Always use **snake_case** predicates.
+## Reading memory overview
 
+**Search** - use when you need to find something:
+```
+memory_read(query="Alice's current employer")
+memory_read(query="auth service architecture", file="daily")
+```
+
+**Get a file** - use when you need the full content or a specific range:
+```
+memory_read(file="USER.md")
+memory_read(file="RELATIONS.md", start_line=1, end_line=20)
+```
+
+Always search before answering questions that may have been discussed before.
+
+---
+
+## Writing memory overview
+
+### Where to write
+
+| File | Content |
+|------|---------|
+| `MEMORY.md` | Curated facts, decisions, project knowledge (append-only) |
+| `USER.md` | Stable facts about the user: name, role, location, preferences |
+| `AGENTS.md` | Behavioural rules for future sessions |
+| `daily` | Session notes, task progress, transient context (append-only) |
+| `RELATIONS.md` | Entity relationships - edit via memory_write or memory_relate |
+
+### Append (add new content)
+```
+memory_write(file="MEMORY.md", content="Prefers TypeScript over JavaScript.")
+memory_write(file="daily", content="Started refactoring the auth module.")
+```
+Before appending to MEMORY.md, USER.md, or AGENTS.md, search first to avoid duplicates.
+
+### Replace (update existing content)
+```
+# By exact text match (first occurrence):
+memory_write(file="USER.md", search="Works at Acme Corp.", content="Works at New Corp.")
+
+# By line range (read the file first to find the lines):
+memory_write(file="USER.md", start_line=3, end_line=3, content="Works at New Corp.")
+```
+
+### Delete lines
+```
+memory_write(file="USER.md", start_line=5, end_line=7, content="")
+```
+
+MEMORY.md and daily logs are append-only; replace and delete are not allowed on them.
+
+---
+
+## Relationships overview
+
+Use `memory_relate` for directional facts between entities (snake_case predicates):
 ```
 memory_relate(subject="Alice", predicate="works_at", object="Acme Corp")
-memory_relate(subject="Auth Service", predicate="owned_by", object="Platform Team")
 memory_relate(subject="Bob", predicate="manages", object="Alice")
 ```
 
-When to relate vs. write:
-- Structural fact about people, teams, or systems → `memory_relate`
-- Free-form preference, decision, or note → `memory_write`
-
-#### Superseding outdated relations
-
-When a relation changes (job change, location change, team reassignment), use `supersedes=True` to replace the old value instead of accumulating duplicates:
-
+When a relation is no longer valid (job change, location change), use `supersedes=True`
+to replace the old value instead of accumulating duplicates:
 ```
-# User changed jobs - old works_at should be removed
-memory_relate(subject="Alice", predicate="works_at", object="New Corp", supersedes=True, note="Previously at Old Corp")
-
-# User moved cities
-memory_relate(subject="Alice", predicate="lives_in", object="Berlin", supersedes=True)
+memory_relate(subject="Alice", predicate="works_at", object="New Corp", supersedes=True)
 ```
+Do NOT use `supersedes=True` when multiple values are valid simultaneously (e.g. `knows`, `attended`).
 
-**Rules:**
-- Use `supersedes=True` only when the old value is no longer valid - it deletes ALL prior `(subject, predicate)` triples.
-- Do NOT use `supersedes=True` when multiple objects are valid at the same time (e.g. `knows`, `attended`, `member_of`).
-- Before writing any relation, call `memory_search` to check if a conflicting one already exists.
+### RELATIONS.md format
 
-### Editing RELATIONS.md directly
-
-You may read and edit RELATIONS.md using `memory_get`, `memory_replace_text`, `memory_replace_lines`, and `memory_delete`. **Every non-blank, non-header line must follow this exact format:**
-
+Every non-blank, non-comment line must follow this exact format:
 ```
 - [Subject] --predicate--> [Object] (YYYY-MM-DD) - "optional note"
 ```
+Lines that do not match will be rejected by the write tools.
 
-Examples of valid lines:
-```
-- [Alice] --leads--> [Auth Team] (2026-03-20)
-- [Alice] --leads--> [Auth Team] (2026-03-20) - "Assigned during sprint planning"
-- [Auth Service] --owned_by--> [Platform Team] (2026-03-20)
-```
+---
 
-**Rules:**
-- Subject and Object are wrapped in square brackets: `[Name]`
-- Predicate uses **snake_case** and is wrapped with `--` and `-->`: `--predicate-->`
-- Date `(YYYY-MM-DD)` is required
-- Note (after `-`) is optional
-- Lines that do not match this format will be rejected when using replace tools
+## Default agent Behavior
+
+- Be warm and direct. Do not override user-defined persona with excessive friendliness.
+- Act without narrating: do not announce tool calls before making them.
+- After writes (append/replace/delete), give a brief confirmation only if the user asked for the action.
 """
 
 _DEFAULT_RELATIONS_MD = """\

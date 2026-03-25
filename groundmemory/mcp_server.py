@@ -9,6 +9,14 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 
 from groundmemory.config import groundmemoryConfig
+from groundmemory.tools import (
+    memory_bootstrap as _t_bootstrap,
+    memory_dispatcher as _t_dispatcher,
+    memory_list as _t_list,
+    memory_read as _t_read,
+    memory_relate as _t_relate,
+    memory_write as _t_write,
+)
 
 # ---------------------------------------------------------------------------
 # Lazy session - created once on first tool call, not at import time.
@@ -66,19 +74,6 @@ def memory_tool(
     action: str,
     args: Optional[dict] = None,
 ) -> str:
-    """Unified memory tool dispatcher. Pass `action` to select the operation:
-      
-      bootstrap: Return the full memory bootstrap context (no args needed). Must be called **once at the very start of every session** before doing anything else.
-      describe:  Return full schema for an action (args: {"action": "<name>"}). Call this once before invoking action (other than bootstrap) to understand what args it needs.
-      read:      Search memory or read a file.
-      write:     Append/replace/delete memory.
-      relate:    Add an entity relation.
-      list:      List all memory files with sizes.
-
-    Args:
-        action: Which memory operation to perform.
-        args: Arguments for the selected action.
-    """
     kwargs: dict = {"action": action}
     if args is not None:
         kwargs["args"] = args
@@ -86,16 +81,6 @@ def memory_tool(
 
 
 def memory_bootstrap() -> str:
-    """Load the full memory context for this workspace into the conversation.
-
-    Must be called **once at the very start of every session** before doing
-    anything else. It assembles MEMORY.md (long-term facts), USER.md (user
-    profile), AGENTS.md (agent instructions), RELATIONS.md (entity graph),
-    and the last two daily logs into a single formatted block.
-
-    Returns the Markdown-formatted context, or an empty placeholder when the
-    workspace has no memory yet.
-    """
     text = _get_session().bootstrap()
     return text or "(No memory context yet. Use memory_write to start building your memory.)"
 
@@ -107,28 +92,6 @@ def memory_read(
     start_line: Optional[int] = None,
     end_line: Optional[int] = None,
 ) -> str:
-    """Read from memory. Two modes:
-
-    SEARCH mode - provide `query` to run hybrid semantic+keyword search across
-    memory. Optionally supply `top_k` to limit result count, and `file` to
-    restrict the search to one memory tier.
-
-    GET mode - provide `file` (no query) to read a memory file directly.
-    Optionally supply `start_line` and `end_line` (1-based, inclusive) to
-    read a specific line range.
-
-    Files: 'MEMORY.md', 'USER.md', 'AGENTS.md', 'RELATIONS.md',
-           'daily' (today), 'daily/YYYY-MM-DD.md' (specific day).
-
-    Args:
-        query: Natural-language search query (SEARCH mode).
-        file: File path relative to workspace root. In SEARCH mode,
-              restricts results to this file's tier. In GET mode,
-              reads the file directly (required).
-        top_k: Max search results to return (SEARCH mode only).
-        start_line: 1-based first line to return (GET mode only).
-        end_line: 1-based last line to return, inclusive (GET mode only).
-    """
     kwargs: dict = {}
     if query is not None:
         kwargs["query"] = query
@@ -151,29 +114,6 @@ def memory_write(
     end_line: Optional[int] = None,
     tags: Optional[list] = None,
 ) -> str:
-    """Write to memory. Four modes selected by the parameters you supply:
-
-    APPEND        - omit start_line/end_line/search; appends `content` to `file`.
-    REPLACE_TEXT  - supply `search`; replaces first exact occurrence with `content`.
-    REPLACE_LINES - supply start_line + end_line + non-empty content; replaces that range.
-    DELETE        - supply start_line + end_line + content=""; hard-deletes those lines.
-
-    Append targets: 'MEMORY.md' (long-term), 'USER.md' (user profile),
-                    'AGENTS.md' (agent rules), 'daily' (today's log).
-    Edit targets:   'USER.md', 'AGENTS.md', 'RELATIONS.md'.
-    MEMORY.md and daily/*.md are append-only (cannot be edited or deleted).
-
-    Before appending to MEMORY.md, USER.md, or AGENTS.md, call memory_read
-    with a query to check for near-duplicates first.
-
-    Args:
-        file: Target file (see targets above).
-        content: Text to write, replacement text, or "" to delete lines.
-        search: REPLACE_TEXT mode - exact string to find (first occurrence).
-        start_line: 1-based first line for REPLACE_LINES / DELETE modes.
-        end_line: 1-based last line (inclusive) for REPLACE_LINES / DELETE modes.
-        tags: Optional tags for APPEND to MEMORY.md or daily.
-    """
     kwargs: dict = {"file": file, "content": content}
     if search is not None:
         kwargs["search"] = search
@@ -195,22 +135,6 @@ def memory_relate(
     source_file: str = "RELATIONS.md",
     confidence: float = 1.0,
 ) -> str:
-    """Record a typed entity relationship: subject - predicate - object.
-
-    Near-duplicate triples are suppressed automatically via cosine similarity
-    deduplication before any write occurs.
-
-    Args:
-        subject: The source entity (e.g. "Alice").
-        predicate: The relationship type (e.g. "works_at").
-        object: The target entity (e.g. "Acme Corp").
-        supersedes: When True, all existing (subject, predicate) triples are
-                    deleted before writing the new one (use when a relation
-                    replaces an outdated one, e.g. person changed employer).
-        note: Optional free-text annotation stored alongside the triple.
-        source_file: Workspace-relative file for the triple (default: RELATIONS.md).
-        confidence: Confidence score 0.0-1.0 (default: 1.0).
-    """
     return _unwrap(
         _get_session().execute_tool(
             "memory_relate",
@@ -226,7 +150,6 @@ def memory_relate(
 
 
 def memory_list() -> str:
-    """List all memory files in the workspace with sizes and line counts."""
     return _unwrap(_get_session().execute_tool("memory_list"))
 
 
@@ -260,6 +183,19 @@ def _register_tools(cfg: groundmemoryConfig) -> None:
         if cfg.expose_memory_list:
             mcp.tool()(memory_list)
 
+
+# ---------------------------------------------------------------------------
+# Pull descriptions from the canonical SCHEMA in each tool module.
+# FastMCP uses __doc__ as the MCP tool description, so assigning here means
+# the tool modules are the single source of truth - no duplication.
+# ---------------------------------------------------------------------------
+
+memory_tool.__doc__       = _t_dispatcher.SCHEMA["description"]
+memory_bootstrap.__doc__  = _t_bootstrap.SCHEMA["description"]
+memory_read.__doc__       = _t_read.SCHEMA["description"]
+memory_write.__doc__      = _t_write.SCHEMA["description"]
+memory_relate.__doc__     = _t_relate.SCHEMA["description"]
+memory_list.__doc__       = _t_list.SCHEMA["description"]
 
 # Register all tools at module load (config is read once)
 _register_tools(groundmemoryConfig.auto())

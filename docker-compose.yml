@@ -36,8 +36,8 @@ services:
       #   Local (sentence-transformers): requires rebuild with EXTRAS=local
       - path: .env
         required: false
-    environment:
-      GROUNDMEMORY_WORKSPACE: default
+    # environment:
+    #   GROUNDMEMORY_WORKSPACE: default
       # ---------------------------------------------------------------------------
       # Network access - commented out by default (local-only is the safe default).
       #

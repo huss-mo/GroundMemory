@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 # dispatcher is the only registered tool and must handle all operations itself.
 _ACTION_DOCS = {
     "bootstrap":  "Return the full memory bootstrap context (no args needed). Must be called **once at the very start of every session** before doing anything else.",
-    "describe":   "Return full schema for an action (args: {\"action\": \"<name>\"}). Call this once before invoking action (other than bootstrap) to understand what args it needs.",
+    "describe":   "Return full schema for an action (args: {\"action\": \"<name>\"}). Call this once before invoking an action for the first time (other than bootstrap) to understand what args it needs.",
     "read":       "Search memory or read a file. Args: query?, file?, top_k?, start_line?, end_line?",
     "write":      "Append/replace/delete memory. Args: file, content, search?, start_line?, end_line?, tags?",
     "relate":     "Add an entity relation. Args: subject, predicate, object, note?",
