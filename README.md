@@ -5,6 +5,7 @@
 **Persistent, semantic memory for AI agents - mcp-native, local-first, framework-agnostic, production-ready.**
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![Release](https://github.com/huss-mo/GroundMemory/actions/workflows/publish-release.yml/badge.svg?event=push)](https://github.com/huss-mo/GroundMemory/actions/workflows/publish-release.yml)
 [![Unit Tests](https://github.com/huss-mo/GroundMemory/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/huss-mo/GroundMemory/actions/workflows/unit-tests.yml)
 [![Test Suite](https://img.shields.io/badge/test%20suite-380%20tests-blue.svg)](#running-the-test-suite)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -216,7 +217,7 @@ Integration tests are marked with `@pytest.mark.embeddings` and require an embed
 
 1. Fork the repository and create a branch: `git checkout -b feature/your-feature-name`
 2. Make your changes with accompanying tests.
-3. Run `pytest tests/ -m "not embeddings"` - all unit tests must pass.
+3. Run tests - all unit tests must pass.
 4. Open a pull request with a clear description of what changes and why.
 
 ---
