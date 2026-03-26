@@ -41,10 +41,11 @@ def _read_capped(path: Path, max_chars: int) -> tuple[str, bool]:
     return full[:max_chars], True
 
 
-def _section(title: str, body: str, truncated: bool = False) -> str:
+def _section(title: str, body: str, truncated: bool = False, source: str = "") -> str:
     """Wrap *body* in a labelled Markdown block."""
     marker = " [TRUNCATED - use memory_get to read the rest]" if truncated else ""
-    return f"### {title}{marker}\n\n{body}\n"
+    source_line = f"*{source}*\n\n" if source else ""
+    return f"### {title}{marker} ({source_line})\n\n{body}\n"
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +77,7 @@ def build_bootstrap_prompt(
     sections: list[str] = []
     total_chars = 0
 
-    def _add(title: str, path: Path | None, body: str | None = None) -> bool:
+    def _add(title: str, path: Path | None, body: str | None = None, source: str = "") -> bool:
         """Add a section, respecting the total char budget. Returns False if budget exhausted."""
         nonlocal total_chars
         remaining = cfg.max_total_chars - total_chars
@@ -90,6 +91,8 @@ def build_bootstrap_prompt(
             if not raw.strip():
                 return True
             body_text = raw
+            if not source:
+                source = path.name
         else:
             truncated = len(body) > cfg.max_chars_per_file
             body_text = body[: cfg.max_chars_per_file] if truncated else body
@@ -100,7 +103,7 @@ def build_bootstrap_prompt(
         if not body_text.strip():
             return True
 
-        sections.append(_section(title, body_text, truncated))
+        sections.append(_section(title, body_text, truncated, source=source))
         total_chars += len(body_text)
         return total_chars < cfg.max_total_chars
 
@@ -122,7 +125,7 @@ def build_bootstrap_prompt(
             relations = _graph.get_relations(index)
             if relations:
                 rel_md = _graph.format_relations_for_context(relations)
-                _add("Relation Graph", None, body=rel_md)
+                _add("Relation Graph", None, body=rel_md, source="RELATIONS.md")
         else:
             _add("Relation Graph", workspace.relations_file)
 
@@ -133,7 +136,7 @@ def build_bootstrap_prompt(
         for day in (yesterday, today):
             day_path = workspace.daily_file(day)
             label = f"Daily Log ({day.isoformat()})"
-            if not _add(label, day_path):
+            if not _add(label, day_path, source=f"daily/{day_path.name}"):
                 break  # budget exhausted
 
     if not sections:
