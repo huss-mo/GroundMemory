@@ -7,9 +7,11 @@ Schema:
   - chunks_fts     : FTS5 virtual table for BM25 keyword search
   - relations      : named entity relationships (graph layer)
   - embedding_cache: reuse embeddings when content hasn't changed
+  - meta           : key/value store for index metadata (e.g. embedding dimension)
+  - vec_chunks     : sqlite-vec virtual table for fast ANN search (optional)
 
-Vector search uses a pure-Python cosine similarity fallback (always available).
-If sqlite-vec extension is available it will be used automatically for faster search.
+Vector search uses sqlite-vec KNN when the extension is available, falling back to
+pure-Python cosine similarity (NumPy) when it is not.
 """
 
 from __future__ import annotations
@@ -20,7 +22,30 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
+
 from groundmemory.core.chunker import Chunk
+
+# sqlite-vec is a core dependency - this import should always succeed.
+#
+# The try/except is kept intentionally as a forward-compatibility hedge for
+# two edge cases where the import or extension load may still fail at runtime:
+#
+#   1. Hardened Python builds (some Linux distros, embedded environments) where
+#      sqlite3.Connection.enable_load_extension() is compiled out or restricted
+#      by security policy.  In that case _try_load_vec() returns False and the
+#      NumPy cosine-similarity fallback is used transparently.
+#
+#   2. Future portability targets (e.g. Pyodide/WASM) that may not support
+#      native extension loading at all.
+#
+# In both cases GroundMemory continues to function correctly -— only the ANN
+# performance advantage of sqlite-vec is lost, not correctness.
+try:
+    import sqlite_vec as _sqlite_vec  # type: ignore[import-untyped]
+    _SQLITE_VEC_MODULE = _sqlite_vec
+except ImportError:  # pragma: no cover
+    _SQLITE_VEC_MODULE = None  # type: ignore[assignment]
 
 # ---------------------------------------------------------------------------
 # Schema DDL
@@ -29,6 +54,11 @@ from groundmemory.core.chunker import Chunk
 _SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
+
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS files (
     path        TEXT PRIMARY KEY,
@@ -133,13 +163,60 @@ class MemoryIndex:
             self._conn.executescript(_FTS_TRIGGERS)
 
     def _try_load_vec(self) -> bool:
-        """Attempt to load sqlite-vec extension. Returns True if available."""
+        """
+        Attempt to load the sqlite-vec extension.  Returns True if the extension
+        is available and was loaded successfully; False otherwise.
+        """
+        if _SQLITE_VEC_MODULE is None:
+            return False
         try:
             self._conn.enable_load_extension(True)
+            _SQLITE_VEC_MODULE.load(self._conn)
+            self._conn.enable_load_extension(False)
             self._conn.execute("SELECT vec_version()")
             return True
         except Exception:
             return False
+
+    # ------------------------------------------------------------------
+    # vec_chunks virtual table (created lazily on first upsert)
+    # ------------------------------------------------------------------
+
+    def _ensure_vec_table(self, dim: int) -> None:
+        """
+        Create the vec_chunks virtual table for the given embedding dimension
+        if it doesn't already exist.  The dimension is stored in the meta table
+        so we can detect mismatches across restarts.
+        """
+        stored = self._conn.execute(
+            "SELECT value FROM meta WHERE key = 'vec_dim'"
+        ).fetchone()
+
+        if stored is None:
+            # First time — create the table and record the dimension.
+            with self._conn:
+                self._conn.execute(
+                    f"CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks "
+                    f"USING vec0(chunk_id TEXT PRIMARY KEY, embedding float[{dim}])"
+                )
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO meta(key, value) VALUES ('vec_dim', ?)",
+                    (str(dim),),
+                )
+        else:
+            existing_dim = int(stored["value"])
+            if existing_dim != dim:
+                # Embedding model changed — rebuild the vec table from scratch.
+                with self._conn:
+                    self._conn.execute("DROP TABLE IF EXISTS vec_chunks")
+                    self._conn.execute(
+                        f"CREATE VIRTUAL TABLE vec_chunks "
+                        f"USING vec0(chunk_id TEXT PRIMARY KEY, embedding float[{dim}])"
+                    )
+                    self._conn.execute(
+                        "INSERT OR REPLACE INTO meta(key, value) VALUES ('vec_dim', ?)",
+                        (str(dim),),
+                    )
 
     # ------------------------------------------------------------------
     # File tracking
@@ -174,6 +251,14 @@ class MemoryIndex:
 
     def upsert_chunks(self, chunks: list[Chunk], embeddings: list[list[float]], model_id: str) -> None:
         now = time.time()
+
+        # Prepare (and optionally normalise) embeddings for vec_chunks.
+        # Guard: zero-dim embeddings (e.g. NullEmbeddingProvider) cannot be indexed.
+        _vec_dim = len(embeddings[0]) if embeddings else 0
+        _use_vec = self._vec_available and _vec_dim > 0
+        if _use_vec:
+            self._ensure_vec_table(_vec_dim)
+
         with self._conn:
             for chunk, emb in zip(chunks, embeddings):
                 self._conn.execute(
@@ -194,9 +279,29 @@ class MemoryIndex:
                     ),
                 )
 
+                if _use_vec:
+                    # Normalise to unit length so L2 distance ≡ cosine distance.
+                    v = np.array(emb, dtype=np.float32)
+                    norm = np.linalg.norm(v)
+                    if norm > 0:
+                        v = v / norm
+                    self._conn.execute(
+                        "INSERT OR REPLACE INTO vec_chunks(chunk_id, embedding) VALUES (?, ?)",
+                        (chunk.chunk_id, _SQLITE_VEC_MODULE.serialize_float32(v.tolist())),  # type: ignore[union-attr]
+                    )
+
     def delete_chunks_for_file(self, path: str) -> None:
         with self._conn:
             self._conn.execute("DELETE FROM chunks WHERE path = ?", (path,))
+            if self._vec_available:
+                try:
+                    self._conn.execute(
+                        "DELETE FROM vec_chunks WHERE chunk_id IN "
+                        "(SELECT chunk_id FROM chunks WHERE path = ?)",
+                        (path,),
+                    )
+                except Exception:
+                    pass  # vec_chunks may not exist yet
 
     def get_chunks_for_file(self, path: str) -> list[sqlite3.Row]:
         return self._conn.execute(
@@ -272,7 +377,7 @@ class MemoryIndex:
         return cur.rowcount > 0
 
     # ------------------------------------------------------------------
-    # Vector search (pure Python cosine fallback)
+    # Vector search
     # ------------------------------------------------------------------
 
     def vector_search(
@@ -284,10 +389,129 @@ class MemoryIndex:
     ) -> list[dict]:
         """
         Retrieve top_k chunks by cosine similarity to query_embedding.
-        Falls back to Python dot-product computation when sqlite-vec is unavailable.
-        """
-        import numpy as np
 
+        Fast path: when sqlite-vec is loaded and vec_chunks exists, uses the
+        vec0 KNN operator (C-level L2 scan).  Because all stored embeddings are
+        unit-normalised, L2 distance maps exactly to cosine via:
+
+            cosine_similarity = 1 - (L2_distance ** 2) / 2
+
+        The KNN result set is over-fetched (top_k * 4, capped at 2048) to
+        compensate for any source/model_id post-filtering.
+
+        Fallback: pure-Python NumPy cosine similarity (linear scan).
+        """
+        if self._vec_available:
+            return self._vector_search_vec(query_embedding, top_k, source_filter, model_id)
+        return self._vector_search_numpy(query_embedding, top_k, source_filter, model_id)
+
+    # -- sqlite-vec fast path -------------------------------------------
+
+    def _vector_search_vec(
+        self,
+        query_embedding: list[float],
+        top_k: int,
+        source_filter: Optional[str],
+        model_id: Optional[str],
+    ) -> list[dict]:
+        """KNN search via sqlite-vec vec0 virtual table."""
+        # Guard: zero-dim query (NullEmbeddingProvider) → fall back to NumPy.
+        if not query_embedding:
+            return self._vector_search_numpy(query_embedding, top_k, source_filter, model_id)
+
+        # Verify vec_chunks exists (it won't if no chunks have been upserted yet).
+        tbl = self._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='vec_chunks'"
+        ).fetchone()
+        if tbl is None:
+            return self._vector_search_numpy(query_embedding, top_k, source_filter, model_id)
+
+        # Normalise query to unit length — same transform applied at index time.
+        q = np.array(query_embedding, dtype=np.float32)
+        q_norm = np.linalg.norm(q)
+        if q_norm == 0:
+            return []
+        q = q / q_norm
+
+        # Over-fetch to absorb post-filter losses.  Cap at 2048 for safety.
+        fetch_k = min(max(top_k * 4, top_k + 32), 2048)
+
+        try:
+            knn_rows = self._conn.execute(
+                """
+                SELECT chunk_id, distance
+                FROM vec_chunks
+                WHERE embedding MATCH ?
+                  AND k = ?
+                ORDER BY distance
+                """,
+                (_SQLITE_VEC_MODULE.serialize_float32(q.tolist()), fetch_k),  # type: ignore[union-attr]
+            ).fetchall()
+        except Exception:
+            # vec_chunks may be inconsistent (e.g. after a schema migration);
+            # fall back to NumPy rather than crashing.
+            return self._vector_search_numpy(query_embedding, top_k, source_filter, model_id)
+
+        if not knn_rows:
+            return []
+
+        # Collect chunk_ids in ranked order, then bulk-fetch metadata from chunks.
+        ranked_ids = [r["chunk_id"] for r in knn_rows]
+        dist_by_id = {r["chunk_id"]: r["distance"] for r in knn_rows}
+
+        placeholders = ",".join("?" * len(ranked_ids))
+        filters = [f"chunk_id IN ({placeholders})"]
+        params: list = list(ranked_ids)
+        if source_filter:
+            filters.append("source = ?")
+            params.append(source_filter)
+        if model_id:
+            filters.append("model_id = ?")
+            params.append(model_id)
+
+        where = "WHERE " + " AND ".join(filters)
+        meta_rows = self._conn.execute(
+            f"SELECT chunk_id, path, source, start_line, end_line, text, updated_at "
+            f"FROM chunks {where}",
+            params,
+        ).fetchall()
+
+        # Map back to result dicts, preserving KNN order.
+        meta_by_id = {r["chunk_id"]: r for r in meta_rows}
+        scored = []
+        for cid in ranked_ids:
+            row = meta_by_id.get(cid)
+            if row is None:
+                continue  # filtered out by source/model_id
+            dist = dist_by_id[cid]
+            # Convert L2 → cosine (valid because both vectors are unit-length).
+            cosine = 1.0 - (dist ** 2) / 2.0
+            cosine = max(-1.0, min(1.0, cosine))  # numerical clamp
+            scored.append({
+                "chunk_id": row["chunk_id"],
+                "path": row["path"],
+                "source": row["source"],
+                "start_line": row["start_line"],
+                "end_line": row["end_line"],
+                "text": row["text"],
+                "updated_at": row["updated_at"],
+                "vector_score": cosine,
+                "text_score": 0.0,
+                "score": cosine,
+            })
+
+        return scored[:top_k]
+
+    # -- NumPy fallback -------------------------------------------------
+
+    def _vector_search_numpy(
+        self,
+        query_embedding: list[float],
+        top_k: int,
+        source_filter: Optional[str],
+        model_id: Optional[str],
+    ) -> list[dict]:
+        """Linear cosine-similarity scan using NumPy (always available)."""
         q = np.array(query_embedding, dtype=np.float32)
         q_norm = np.linalg.norm(q)
         if q_norm == 0:
@@ -304,7 +528,8 @@ class MemoryIndex:
 
         where = f"WHERE {' AND '.join(filters)}" if filters else ""
         rows = self._conn.execute(
-            f"SELECT chunk_id, path, source, start_line, end_line, text, embedding, updated_at FROM chunks {where}",
+            f"SELECT chunk_id, path, source, start_line, end_line, text, embedding, updated_at "
+            f"FROM chunks {where}",
             params,
         ).fetchall()
 
