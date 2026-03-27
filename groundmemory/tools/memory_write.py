@@ -276,4 +276,6 @@ def run(
         sync.sync_file(daily_path, session.index, session.provider, session.config.chunking)
 
     result["mode"] = "append"
+    from groundmemory.tools.base import _auto_clear_first_run
+    _auto_clear_first_run(session)
     return ok(result)

@@ -44,6 +44,22 @@ _IMMUTABLE_MSG = (
 )
 
 
+def _auto_clear_first_run(session) -> None:
+    """
+    Silently empty FIRST_RUN.md after the first successful write operation.
+
+    This marks onboarding as complete without requiring the model to do it
+    explicitly.  Safe to call on every write - does nothing once the file
+    is already empty.
+    """
+    try:
+        fr = session.workspace.first_run_file
+        if fr.exists() and fr.read_text(encoding="utf-8").strip():
+            fr.write_text("", encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass  # Never let this interfere with the actual write result
+
+
 def sync_after_edit(
     session,
     resolved: Path,
@@ -80,4 +96,5 @@ def sync_after_edit(
         base_payload["format_reminder"] = RELATIONS_FORMAT_REMINDER
         if relation_sync_result:
             base_payload["relations_synced"] = relation_sync_result
+    _auto_clear_first_run(session)
     return ok(base_payload)
