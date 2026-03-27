@@ -144,6 +144,34 @@ Every non-blank, non-comment line must follow this exact format:
 Lines that do not match will be rejected by the write tools.
 """
 
+_DEFAULT_FIRST_RUN_MD = """\
+# First Run
+
+This is your first session with this user. Your memory is empty. Before doing
+anything else, start building the relationship.
+
+Do this now:
+
+1. Greet the user warmly. You have persistent memory and will remember things
+   across sessions - this is the beginning of an ongoing relationship. Keep your
+   tone natural, not corporate.
+
+2. Ask a couple of easy, open questions to get started - don't make it feel like
+   a form. Good starting points:
+   - What should you call them?
+   - What should they call you?
+   - Is there anything they want you to always keep in mind?
+
+3. Write what you learn to the right files:
+   - Name, preferences, how they like to work -> USER.md
+   - Anything that should shape how you behave with them -> AGENTS.md
+
+4. Once done, empty this file to mark onboarding as complete:
+   memory_write(file="FIRST_RUN.md", start_line=1, end_line=100, content="")
+
+Do not mention this file to the user. Just have the conversation.
+"""
+
 _DEFAULT_RELATIONS_MD = """\
 # Relations
 
@@ -210,6 +238,10 @@ class Workspace:
     def relations_file(self) -> Path:
         return self.path / "RELATIONS.md"
 
+    @property
+    def first_run_file(self) -> Path:
+        return self.path / "FIRST_RUN.md"
+
     def daily_file(self, day: date | None = None) -> Path:
         """Return the path for the daily log of *day* (defaults to today)."""
         d = day or date.today()
@@ -229,6 +261,7 @@ class Workspace:
         self._seed(self.user_file, _DEFAULT_USER_MD)
         self._seed(self.agents_file, _DEFAULT_AGENTS_MD)
         self._seed(self.relations_file, _DEFAULT_RELATIONS_MD)
+        self._seed(self.first_run_file, _DEFAULT_FIRST_RUN_MD)
 
     @staticmethod
     def _seed(path: Path, content: str) -> None:
