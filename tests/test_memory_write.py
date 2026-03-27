@@ -314,3 +314,48 @@ class TestMemoryWriteDelete:
         assert "Rule B." not in content
         assert "Rule A." in content
         assert "Rule C." in content
+
+
+# ===========================================================================
+# FIRST_RUN.md auto-clear
+# ===========================================================================
+
+
+class TestFirstRunAutoCleared:
+    """FIRST_RUN.md must be emptied automatically on the first successful write."""
+
+    def test_first_run_cleared_after_append(self, session):
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() != ""
+        session.execute_tool("memory_write", file="USER.md", content="Name is Alice.")
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() == ""
+
+    def test_first_run_cleared_after_replace_text(self, session):
+        _write_user(session, "old name\n")
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() != ""
+        session.execute_tool("memory_write", file="USER.md", search="old name", content="new name")
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() == ""
+
+    def test_first_run_cleared_after_replace_lines(self, session):
+        _write_user(session, "line one\nline two\n")
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() != ""
+        session.execute_tool("memory_write", file="USER.md", start_line=1, end_line=1, content="replaced")
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() == ""
+
+    def test_first_run_cleared_after_delete(self, session):
+        _write_user(session, "line one\nline two\n")
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() != ""
+        session.execute_tool("memory_write", file="USER.md", start_line=1, end_line=1, content="")
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() == ""
+
+    def test_first_run_already_empty_stays_empty(self, session):
+        session.workspace.first_run_file.write_text("", encoding="utf-8")
+        session.execute_tool("memory_write", file="USER.md", content="Another entry.")
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() == ""
+
+    def test_failed_write_does_not_clear_first_run(self, session):
+        """A failed write must not trigger the auto-clear."""
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() != ""
+        # This write will fail (empty content)
+        r = session.execute_tool("memory_write", file="USER.md", content="")
+        assert r["status"] == "error"
+        assert session.workspace.first_run_file.read_text(encoding="utf-8").strip() != ""

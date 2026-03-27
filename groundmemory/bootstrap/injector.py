@@ -107,20 +107,25 @@ def build_bootstrap_prompt(
         total_chars += len(body_text)
         return total_chars < cfg.max_total_chars
 
-    # 1. Long-term memory (MEMORY.md)
-    if cfg.inject_long_term_memory:
+    # Check whether first-run onboarding is active (file exists and is non-empty).
+    # When active, skip MEMORY.md and USER.md - they are empty/default and would
+    # only confuse the model during onboarding.
+    first_run_active = (
+        workspace.first_run_file.exists()
+        and workspace.first_run_file.read_text(encoding="utf-8").strip() != ""
+    )
+
+    # 1. Long-term memory (MEMORY.md) - skipped during first run
+    if cfg.inject_long_term_memory and not first_run_active:
         _add("Long-Term Memory", workspace.memory_file)
 
-    # 2. User profile (USER.md)
-    if cfg.inject_user_profile:
+    # 2. User profile (USER.md) - skipped during first run
+    if cfg.inject_user_profile and not first_run_active:
         _add("User Profile", workspace.user_file)
 
     # 3. Agent roster (AGENTS.md)
     if cfg.inject_agents:
         _add("Agent Roster", workspace.agents_file)
-
-    # 3b. First-run onboarding (FIRST_RUN.md) - skipped automatically once emptied
-    _add("First Run", workspace.first_run_file)
 
     # 4. Relation graph
     if cfg.inject_relations:
@@ -141,6 +146,10 @@ def build_bootstrap_prompt(
             label = f"Daily Log ({day.isoformat()})"
             if not _add(label, day_path, source=f"daily/{day_path.name}"):
                 break  # budget exhausted
+
+    # 6. First-run onboarding (FIRST_RUN.md) - injected last; skipped automatically once emptied
+    if first_run_active:
+        _add("First Run", workspace.first_run_file)
 
     if not sections:
         return ""

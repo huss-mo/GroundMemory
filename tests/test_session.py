@@ -121,6 +121,8 @@ class TestSessionBootstrap:
         # An empty workspace should produce minimal/empty bootstrap
 
     def test_bootstrap_includes_long_term_memory(self, session):
+        # Simulate post-onboarding: FIRST_RUN.md must be empty so MEMORY.md is injected
+        session.workspace.first_run_file.write_text("", encoding="utf-8")
         content = "Bootstrap long term fact."
         session.execute_tool("memory_write", file="MEMORY.md", content=content)
         result = session.bootstrap()
