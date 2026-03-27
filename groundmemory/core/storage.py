@@ -218,8 +218,10 @@ def hard_delete_lines(path: Path, start_line: int, end_line: int) -> dict:
 
     if start_line < 1 or start_line > total:
         return {"error": f"start_line {start_line} out of range (file has {total} lines)"}
-    if end_line < start_line or end_line > total:
-        return {"error": f"end_line {end_line} out of range (start={start_line}, total={total})"}
+    if end_line < start_line:
+        return {"error": f"end_line {end_line} must be >= start_line {start_line}"}
+    # Clamp end_line silently if it exceeds the file length
+    end_line = min(end_line, total)
 
     # Convert to 0-indexed
     s = start_line - 1
@@ -277,8 +279,10 @@ def replace_lines(path: Path, start_line: int, end_line: int, replacement: str) 
 
     if start_line < 1 or start_line > total:
         return {"error": f"start_line {start_line} out of range (file has {total} lines)"}
-    if end_line < start_line or end_line > total:
-        return {"error": f"end_line {end_line} out of range (start={start_line}, total={total})"}
+    if end_line < start_line:
+        return {"error": f"end_line {end_line} must be >= start_line {start_line}"}
+    # Clamp end_line silently if it exceeds the file length
+    end_line = min(end_line, total)
 
     # Convert to 0-indexed
     s = start_line - 1

@@ -435,16 +435,19 @@ class TestReplaceLines:
         )
         assert r["status"] == "error"
 
-    def test_replace_lines_error_end_line_beyond_file(self, session):
+    def test_replace_lines_end_line_beyond_file_clamped(self, session):
+        """end_line beyond file length is silently clamped to the last line."""
         _write_user(session, "a\nb\n")
         r = session.execute_tool(
             "memory_write",
             file="USER.md",
             start_line=1,
             end_line=5,
-            content="x",
+            content="CLAMPED",
         )
-        assert r["status"] == "error"
+        assert r["status"] == "ok"
+        content = _get(session, "USER.md")
+        assert "CLAMPED" in content
 
 
 class TestReplaceLinesImmutable:

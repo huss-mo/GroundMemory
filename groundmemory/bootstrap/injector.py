@@ -44,8 +44,8 @@ def _read_capped(path: Path, max_chars: int) -> tuple[str, bool]:
 def _section(title: str, body: str, truncated: bool = False, source: str = "") -> str:
     """Wrap *body* in a labelled Markdown block."""
     marker = " [TRUNCATED - use memory_get to read the rest]" if truncated else ""
-    source_line = f"*{source}*\n\n" if source else ""
-    return f"### {title}{marker} ({source_line})\n\n{body}\n"
+    source_block = f" ({source})" if source else ""
+    return f"### {title}{marker}{source_block}\n\n{body}\n"
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +118,9 @@ def build_bootstrap_prompt(
     # 3. Agent roster (AGENTS.md)
     if cfg.inject_agents:
         _add("Agent Roster", workspace.agents_file)
+
+    # 3b. First-run onboarding (FIRST_RUN.md) - skipped automatically once emptied
+    _add("First Run", workspace.first_run_file)
 
     # 4. Relation graph
     if cfg.inject_relations:
