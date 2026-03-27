@@ -42,8 +42,8 @@ embedding:
   # --- sentence-transformers (provider: local) ---
   # Requires: pip install groundmemory[local]  (not installed by default)
   # Any model from https://www.sbert.net/docs/pretrained_models.html
-  # local_model: all-MiniLM-L6-v2      # fast, 384-dim, good quality
-  # local_model: all-mpnet-base-v2     # slower, 768-dim, higher quality
+  # local_model: sentence-transformers/all-MiniLM-L6-v2      # fast, 384-dim, good quality
+  # local_model: sentence-transformers/all-mpnet-base-v2     # slower, 768-dim, higher quality
 
   # --- OpenAI-compatible API (provider: openai) ---
   # Supports: OpenAI, Ollama, LM Studio, vLLM, Mistral, Together, etc.
@@ -94,6 +94,14 @@ search:
   # MMR (Maximal Marginal Relevance) diversity
   # 0.0 = disabled (pure relevance), 1.0 = maximum diversity
   mmr_lambda: 0.0
+
+  # Cross-encoder reranking model (disabled by default).
+  # Requires: pip install groundmemory[local]
+  # The cross-encoder rescores the merged candidate set for higher precision.
+  # Popular options:
+  #   cross-encoder/ms-marco-MiniLM-L-6-v2   # fast, good quality
+  #   cross-encoder/ms-marco-MiniLM-L-12-v2  # slower, higher quality
+  # rerank_model: cross-encoder/ms-marco-MiniLM-L-6-v2
 
 # ---------------------------------------------------------------------------
 # Text chunking

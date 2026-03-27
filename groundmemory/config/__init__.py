@@ -130,7 +130,7 @@ class EmbeddingConfig(BaseSettings):
     provider: Literal["local", "openai", "none"] = "local"
 
     # sentence-transformers model (provider="local")
-    local_model: str = "all-MiniLM-L6-v2"
+    local_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     # OpenAI-compatible endpoint (provider="openai")
     base_url: Optional[str] = None
@@ -179,6 +179,7 @@ class SearchConfig(BaseSettings):
         VECTOR_WEIGHT       - weight for vector similarity (0.0-1.0)
         TEMPORAL_DECAY_RATE - score decay per day of age (0 = disabled)
         MMR_LAMBDA          - MMR diversity (0 = disabled, 1 = max diversity)
+        RERANK_MODEL        - cross-encoder model name for reranking (None = disabled)
     """
 
     model_config = SettingsConfigDict(
@@ -193,6 +194,10 @@ class SearchConfig(BaseSettings):
     vector_weight: float = 0.7
     temporal_decay_rate: float = 0.0
     mmr_lambda: float = 0.0
+    # Cross-encoder reranking model (None = disabled).
+    # Requires: pip install groundmemory[local]
+    # Example: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    rerank_model: Optional[str] = None
 
 
 class CompactionConfig(BaseSettings):

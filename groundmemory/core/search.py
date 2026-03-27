@@ -6,9 +6,10 @@ Pipeline:
   2. Run vector search (cosine) → top_k * candidate_multiplier candidates
   3. Run FTS5 keyword search → top_k * candidate_multiplier candidates
   4. Merge & re-score: score = vector_weight * vec_score + (1-vector_weight) * text_score
-  5. Apply temporal decay (if configured)
-  6. Graph expansion: extract entity mentions from top results, pull in related relations
-  7. Return top_k final results
+  5. Cross-encoder reranking (optional, if rerank_model is set)
+  6. Apply temporal decay (if configured) — post-rerank so recency nudges relevance scores
+  7. Graph expansion: extract entity mentions from top results, pull in related relations
+  8. Return top_k final results
 """
 
 from __future__ import annotations
@@ -206,7 +207,7 @@ def hybrid_search(
 ) -> list[SearchResult]:
     """
     Full hybrid search pipeline:
-      embed → vector search + keyword search → merge → decay → graph expand → top_k
+      embed → vector search + keyword search → merge → rerank → decay → graph expand → top_k
 
     Args:
         query:         Natural language search query.
@@ -219,6 +220,8 @@ def hybrid_search(
     Returns:
         List of SearchResult objects, sorted by descending score.
     """
+    from groundmemory.core.reranker import rerank  # local import to keep reranker optional
+
     k = top_k or config.top_k
     candidates = k * config.candidate_multiplier
 
@@ -246,13 +249,17 @@ def hybrid_search(
     # Step 4: Merge
     merged = _merge_results(vec_results, kw_results, config.vector_weight)
 
-    # Step 5: Temporal decay
+    # Step 5: Cross-encoder reranking (optional)
+    if config.rerank_model:
+        merged = rerank(query, merged, config.rerank_model)
+
+    # Step 6: Temporal decay
     merged = _apply_temporal_decay(merged, config.temporal_decay_rate)
 
-    # Step 6: Graph expansion (enrich top results with relation context)
+    # Step 7: Graph expansion (enrich top results with relation context)
     merged = _expand_with_relations(merged, index, k)
 
-    # Step 7: Return top_k as SearchResult objects
+    # Step 8: Return top_k as SearchResult objects
     final = merged[:k]
     return [
         SearchResult(
