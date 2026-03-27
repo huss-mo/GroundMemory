@@ -27,7 +27,7 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run unit tests
-        run: pytest tests/ -m "not embeddings" -q
+        run: pytest tests/ -m "not local and not api_embeddings" -q
 
   publish:
     name: Validate, build, publish, and release
