@@ -62,5 +62,6 @@ ignore_missing_imports = true
 asyncio_mode = "auto"
 testpaths = ["tests"]
 markers = [
-    "embeddings: integration tests that require a real embedding provider (deselect with -m 'not embeddings')",
+    "local: tests that require sentence-transformers / cross-encoder installed locally (pip install groundmemory[local])",
+    "api_embeddings: tests that require a configured OpenAI-compatible HTTP embedding endpoint",
 ]

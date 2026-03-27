@@ -196,6 +196,113 @@ class TestRerank:
 
 
 # ---------------------------------------------------------------------------
+# Integration: real CrossEncoder download (local marker)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.local
+class TestCrossEncoderRerankerLocal:
+    """Integration tests using a real downloaded cross-encoder model.
+
+    Model name comes from config (search.rerank_model), defaulting to
+    cross-encoder/ms-marco-MiniLM-L-6-v2.
+    Skipped automatically when sentence-transformers is not installed.
+    """
+
+    @pytest.fixture(scope="class")
+    def cross_encoder(self):
+        try:
+            from sentence_transformers import CrossEncoder  # noqa: F401
+        except ImportError:
+            pytest.skip("sentence-transformers not installed (pip install groundmemory[local])")
+
+        from groundmemory.config import groundmemoryConfig
+        cfg = groundmemoryConfig.auto()
+        model_name = cfg.search.rerank_model or "cross-encoder/ms-marco-MiniLM-L-6-v2"
+
+        from sentence_transformers import CrossEncoder
+        return CrossEncoder(model_name)
+
+    def test_cross_encoder_predict_returns_scores(self, cross_encoder):
+        """predict() returns one score per pair."""
+        pairs = [["what is python", "Python is a programming language."],
+                 ["what is python", "Snakes are reptiles."]]
+        scores = cross_encoder.predict(pairs)
+        assert len(scores.tolist()) == 2
+
+    def test_relevant_document_scores_higher(self, cross_encoder):
+        """A relevant document scores higher than an irrelevant one."""
+        query = "what is machine learning"
+        relevant = "Machine learning is a subset of artificial intelligence."
+        irrelevant = "The recipe calls for two cups of flour."
+        scores = cross_encoder.predict([[query, relevant], [query, irrelevant]]).tolist()
+        assert scores[0] > scores[1], (
+            f"Expected relevant ({scores[0]:.3f}) > irrelevant ({scores[1]:.3f})"
+        )
+
+    def test_rerank_function_reorders_results(self, cross_encoder):
+        """rerank() using the real model moves the most relevant chunk to top."""
+        from groundmemory.core.reranker import rerank
+
+        query = "what is machine learning"
+        results = [
+            {"chunk_id": "c0", "text": "The recipe calls for two cups of flour.", "score": 0.9,
+             "vector_score": 0.9, "text_score": 0.9},
+            {"chunk_id": "c1", "text": "Machine learning is a subset of artificial intelligence.",
+             "score": 0.1, "vector_score": 0.1, "text_score": 0.1},
+        ]
+        model_name = cross_encoder.config.name_or_path
+
+        # Patch the cache so rerank() uses our already-loaded model
+        import groundmemory.core.reranker as reranker_module
+        reranker_module._CROSS_ENCODER_CACHE[model_name] = cross_encoder
+
+        reranked = rerank(query, results, model_name)
+        assert reranked[0]["chunk_id"] == "c1", (
+            "ML document should rank first after reranking"
+        )
+
+    def test_rerank_top_k_truncates(self, cross_encoder):
+        """rerank() with top_k returns at most top_k results."""
+        from groundmemory.core.reranker import rerank
+
+        query = "machine learning"
+        results = [
+            {"chunk_id": f"c{i}", "text": f"Document number {i}.", "score": 0.5,
+             "vector_score": 0.5, "text_score": 0.5}
+            for i in range(5)
+        ]
+        model_name = cross_encoder.config.name_or_path
+        import groundmemory.core.reranker as reranker_module
+        reranker_module._CROSS_ENCODER_CACHE[model_name] = cross_encoder
+
+        reranked = rerank(query, results, model_name, top_k=3)
+        assert len(reranked) == 3
+
+    def test_rerank_empty_input(self, cross_encoder):
+        """rerank() with empty results returns empty list."""
+        from groundmemory.core.reranker import rerank
+        model_name = cross_encoder.config.name_or_path
+        import groundmemory.core.reranker as reranker_module
+        reranker_module._CROSS_ENCODER_CACHE[model_name] = cross_encoder
+
+        assert rerank("query", [], model_name) == []
+
+    def test_rerank_single_result(self, cross_encoder):
+        """rerank() with a single result returns it unchanged (except score update)."""
+        from groundmemory.core.reranker import rerank
+        model_name = cross_encoder.config.name_or_path
+        import groundmemory.core.reranker as reranker_module
+        reranker_module._CROSS_ENCODER_CACHE[model_name] = cross_encoder
+
+        results = [{"chunk_id": "c0", "text": "Only result.", "score": 0.5,
+                    "vector_score": 0.5, "text_score": 0.5}]
+        reranked = rerank("query", results, model_name)
+        assert len(reranked) == 1
+        assert isinstance(reranked[0]["score"], float)
+
+
+# ---------------------------------------------------------------------------
 # Integration: rerank_model=None disables reranking in hybrid_search
 # ---------------------------------------------------------------------------
 

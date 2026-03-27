@@ -7,7 +7,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![Release](https://github.com/huss-mo/GroundMemory/actions/workflows/pypi-publish.yml/badge.svg?event=push)](https://github.com/huss-mo/GroundMemory/actions/workflows/pypi-publish.yml)
 [![Unit Tests](https://github.com/huss-mo/GroundMemory/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/huss-mo/GroundMemory/actions/workflows/unit-tests.yml)
-[![Test Suite](https://img.shields.io/badge/test%20suite-399%20tests-blue.svg)](#running-the-test-suite)
+[![Test Suite](https://img.shields.io/badge/test%20suite-449%20tests-blue.svg)](#running-the-test-suite)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![GitHub repo size](https://img.shields.io/github/repo-size/huss-mo/GroundMemory)
 ![GitHub language count](https://img.shields.io/github/languages/count/huss-mo/GroundMemory)
@@ -198,20 +198,55 @@ uv sync --extra dev --extra local
 ### Running the Test Suite
 
 ```bash
-# Unit tests only (no embedding provider required - fast)
-pytest tests/ -m "not embeddings"
+# Core tests - no extra deps or config required (fast, always passes)
+pytest
 
-# Integration tests (requires a configured embedding provider)
-pytest tests/ -m embeddings
+# Local model tests - sentence-transformers + cross-encoder
+# Requires: pip install groundmemory[local]
+pytest -m local
 
-# Full suite
-pytest tests/
+# API embedding tests - OpenAI-compatible HTTP endpoint
+# Requires: endpoint configured via .env or groundmemory.yaml (see below)
+pytest -m api_embeddings
+
+# All marked tests together
+pytest -m "local or api_embeddings"
 
 # With coverage
-pytest tests/ --cov=groundmemory --cov-report=term-missing
+pytest --cov=groundmemory --cov-report=term-missing
 ```
 
-Integration tests are marked with `@pytest.mark.embeddings` and require an embedding provider to be configured via `groundmemory.yaml` or environment variables.
+**`local` tests** download real sentence-transformers and cross-encoder models on first run.
+Model names are read from config (`embedding.local_model`, `search.rerank_model`).
+They skip automatically when `sentence-transformers` is not installed.
+
+**`api_embeddings` tests** require a configured OpenAI-compatible embedding endpoint.
+All settings are read from `.env` or `groundmemory.yaml` — whichever is found first
+(`.env` takes priority). The tests skip automatically when `embedding.provider` is
+not `openai` or the endpoint is unreachable.
+
+Minimal `.env` for `api_embeddings` (project root or `~/.groundmemory/`):
+
+```env
+GROUNDMEMORY_EMBEDDING__PROVIDER=openai
+GROUNDMEMORY_EMBEDDING__BASE_URL=http://localhost:11434/v1
+GROUNDMEMORY_EMBEDDING__API_KEY=ollama
+GROUNDMEMORY_EMBEDDING__MODEL=nomic-embed-text
+```
+
+Or equivalently via `groundmemory.yaml`:
+
+```yaml
+embedding:
+  provider: openai
+  base_url: http://localhost:11434/v1
+  api_key: ollama
+  model: nomic-embed-text
+```
+
+Any OpenAI-compatible endpoint works: OpenAI, Ollama, LM Studio, LiteLLM, etc.
+Running `pytest` with no `-m` flag runs everything — marked tests skip gracefully
+when their requirements are not met.
 
 ### Submitting a PR
 
