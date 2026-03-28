@@ -2,7 +2,7 @@
 
 # GroundMemory
 
-**Persistent, semantic memory for AI agents - mcp-native, local-first, framework-agnostic, production-ready.**
+**Persistent identity and memory across AI tools - mcp-native, local-first, framework-agnostic, production-ready.**
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![Release](https://github.com/huss-mo/GroundMemory/actions/workflows/pypi-publish.yml/badge.svg?event=push)](https://github.com/huss-mo/GroundMemory/actions/workflows/pypi-publish.yml)
@@ -57,7 +57,9 @@ For installation options, embedding providers, multiple workspaces, and the Pyth
 
 ## What Becomes Possible
 
-Without memory, every session starts from zero. With GroundMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with. It makes conversationg stateful, fluid, and natural.
+<img src="https://raw.githubusercontent.com/huss-mo/GroundMemory/master/_assets/groundmemory-1.gif" alt="groundmemory demonstration" width="1080"> 
+
+Without memory, every session in every AI tool starts from zero. With GroundMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with. It makes conversationg stateful, fluid, and natural.
 
 **A coding/personal assistant that builds a profile over time.** After a few conversations, it knows your schedule, your priorities, how you like to communicate, your tech stack, your preferred patterns, the architectural decisions you've already made. It doesn't need to ask.
 
@@ -73,7 +75,7 @@ Without memory, every session starts from zero. With GroundMemory, agents can ma
 
 ## What GroundMemory Does
 
-Most agents forget everything the moment a conversation ends. They ask the same questions again, repeat the same mistakes, and lose track of the user's preferences and ongoing work. This is not a model limitation - it is missing infrastructure.
+Most agents are stateless. They ask the same questions again, repeat the same mistakes, and lose track of the user's preferences and ongoing work. This is not a model limitation - it is missing infrastructure.
 
 GroundMemory provides that infrastructure. It gives your agent a structured, searchable memory that persists across sessions, organised into distinct tiers with clear ownership:
 
