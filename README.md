@@ -59,7 +59,7 @@ For installation options, embedding providers, multiple workspaces, and the Pyth
 
 <img src="https://raw.githubusercontent.com/huss-mo/GroundMemory/master/_assets/groundmemory-1.gif" alt="groundmemory demonstration" width="1080"> 
 
-Without memory, every session in every AI tool starts from zero. With GroundMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with. It makes conversationg stateful, fluid, and natural.
+Without memory, every session in every AI tool starts from zero. With GroundMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with. It makes conversations stateful, fluid, and natural.
 
 **A coding/personal assistant that builds a profile over time.** After a few conversations, it knows your schedule, your priorities, how you like to communicate, your tech stack, your preferred patterns, the architectural decisions you've already made. It doesn't need to ask.
 
