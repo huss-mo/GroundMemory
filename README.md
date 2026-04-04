@@ -57,15 +57,62 @@ For installation options, embedding providers, multiple workspaces, and the Pyth
 
 ## What Becomes Possible
 
-<img src="https://raw.githubusercontent.com/huss-mo/GroundMemory/master/_assets/groundmemory-1.gif" alt="groundmemory demonstration" width="1080"> 
-
 Without memory, every session in every AI tool starts from zero. With GroundMemory, agents can maintain continuity across time, accumulate knowledge, and behave like they actually know the person they're working with. It makes conversations stateful, fluid, and natural.
+
+The exchange below is an example of what this looks like. The first session happens in **Open WebUI**. The second session happens in **Cline (VS Code)** - a completely different tool, with no shared history other than the GroundMemory workspace both are connected to.
+
+---
+
+#### Session 1 - Open WebUI (first ever session)
+
+> **User**
+>
+> Hello
+
+> **Agent**
+>
+> Hey! Welcome - this is the start of something good. I have persistent memory, so anything we talk about I'll carry with me into every future session. No need to repeat yourself down the line.
+>
+> A couple of quick things to get us started:
+> - What should I call you?
+> - Anything you always want me to keep in mind - how you like to work, things to avoid, preferences?
+>
+> No rush. Just getting to know you.
+
+> **User**
+>
+> I'm Alice, a backend engineer working on a SaaS product. We're building a task management API - Node.js, PostgreSQL, Redis for caching, and we're planning to use BullMQ for job queues.
+
+> **Agent**
+>
+> Got it, Alice. Backend engineer, task management API - Node.js, PostgreSQL, Redis, BullMQ for queues. I'll keep that as the baseline for everything we work on together.
+>
+> Anything else before we dive in? Or are you ready to get into it?
+
+*The agent writes what it learned to memory.*
+
+---
+
+#### Session 2 - Cline in VS Code (different tool, same GroundMemory workspace)
+
+> **User**
+>
+> Hey. What tech stack did we agree to use for the task management API?
+
+> **Agent**
+>
+> You're building a task management API with Node.js, PostgreSQL, Redis for caching, and BullMQ for job queues. That's what we landed on.
+
+*No introduction. No setup. The agent already knows.*
+
+---
+
+
+**A single identity across every AI tool you use.** Your memory workspace is not bound to one assistant. Connect Claude Desktop, Cursor, Cline, and any other MCP-compatible tool to the same GroundMemory server and they all share the same memory - your preferences, your stack, your ongoing work. You stop being a stranger every time you open a different tool. There is something genuinely different about being *known* rather than just answered - it shifts the relationship from transactional to collaborative, and removes the quiet tax of re-establishing context that most people don't notice until it's gone.
 
 **A coding/personal assistant that builds a profile over time.** After a few conversations, it knows your schedule, your priorities, how you like to communicate, your tech stack, your preferred patterns, the architectural decisions you've already made. It doesn't need to ask.
 
 **A research agent that constructs a knowledge graph.** As it reads papers and sources across many sessions, it records entities, relationships, and findings.
-
-**A single identity across every AI tool you use.** Your workspace is not bound to one assistant. Connect Claude Desktop, Cursor, Cline, and any other MCP-compatible tool to the same GroundMemory server and they all share the same memory - your preferences, your stack, your ongoing work. You stop being a stranger every time you open a different tool. There is something genuinely different about being *known* rather than just answered - it shifts the relationship from transactional to collaborative, and removes the quiet tax of re-establishing context that most people don't notice until it's gone.
 
 **A customer-facing agent with per-user memory.** In multi-user setups, each user gets their own workspace - preferences, history, ongoing context - giving every interaction a personalised, stateful feel without any custom infrastructure.
 
@@ -223,7 +270,7 @@ Model names are read from config (`embedding.local_model`, `search.rerank_model`
 They skip automatically when `sentence-transformers` is not installed.
 
 **`api_embeddings` tests** require a configured OpenAI-compatible embedding endpoint.
-All settings are read from `.env` or `groundmemory.yaml` — whichever is found first
+All settings are read from `.env` or `groundmemory.yaml` - whichever is found first
 (`.env` takes priority). The tests skip automatically when `embedding.provider` is
 not `openai` or the endpoint is unreachable.
 
@@ -247,7 +294,7 @@ embedding:
 ```
 
 Any OpenAI-compatible endpoint works: OpenAI, Ollama, LM Studio, LiteLLM, etc.
-Running `pytest` with no `-m` flag runs everything — marked tests skip gracefully
+Running `pytest` with no `-m` flag runs everything - marked tests skip gracefully
 when their requirements are not met.
 
 ### Submitting a PR
