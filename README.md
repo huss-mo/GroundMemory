@@ -7,7 +7,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
 [![Release](https://github.com/huss-mo/GroundMemory/actions/workflows/pypi-publish.yml/badge.svg?event=push)](https://github.com/huss-mo/GroundMemory/actions/workflows/pypi-publish.yml)
 [![Unit Tests](https://github.com/huss-mo/GroundMemory/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/huss-mo/GroundMemory/actions/workflows/unit-tests.yml)
-[![Test Suite](https://img.shields.io/badge/test%20suite-509%20tests-blue.svg)](#running-the-test-suite)
+[![Test Suite](https://img.shields.io/badge/test%20suite-513%20tests-blue.svg)](#running-the-test-suite)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![GitHub repo size](https://img.shields.io/github/repo-size/huss-mo/GroundMemory)
 ![GitHub language count](https://img.shields.io/github/languages/count/huss-mo/GroundMemory)
@@ -118,7 +118,7 @@ The exchange below is an example of what this looks like. The first session happ
 
 **A long-running autonomous agent that survives context limits.** Each new session calls `memory_bootstrap` to reload persisted facts, so the agent picks up exactly where the last one left off.
 
-**Automatic backup and restore when memory grows large.** When the memory context exceeds a configurable token threshold, GroundMemory automatically backs up the workspace to a timestamped zip archive before asking the agent to compact it. If something goes wrong, a single command restores the previous state: `groundmemory --restore -1`.
+**Automatic backup and restore when memory grows large.** When the memory context exceeds a configurable token threshold, GroundMemory automatically backs up the workspace to a timestamped zip archive before asking the agent to compact it. You can also trigger a backup manually at any time with `groundmemory --backup`. If something goes wrong, a single command restores the previous state: `groundmemory --restore -1`.
 
 ---
 

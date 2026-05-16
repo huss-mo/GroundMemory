@@ -3,15 +3,19 @@ groundmemory CLI entry point.
 
 Usage
 -----
+Create a manual backup:
+
+    groundmemory --backup
+
+List available backups:
+
+    groundmemory --list-backups
+
 Restore a workspace backup:
 
     groundmemory --restore -1                     # most recent backup
     groundmemory --restore 2026-04-08             # exact date (error if ambiguous)
     groundmemory --restore 2026-04-08_165530      # exact timestamp
-
-List available backups:
-
-    groundmemory --list-backups
 """
 from __future__ import annotations
 
@@ -25,6 +29,13 @@ def _get_workspace_path() -> Path:
     from groundmemory.config import groundmemoryConfig
     cfg = groundmemoryConfig.auto()
     return cfg.root_dir / cfg.workspace
+
+
+def cmd_backup(workspace_path: Path) -> None:
+    from groundmemory.core.backup import create_backup
+    archive = create_backup(workspace_path)
+    print(f"Backup created: {archive.stem}")
+    print(f"  → {archive}")
 
 
 def cmd_list_backups(workspace_path: Path) -> None:
@@ -82,6 +93,11 @@ def main() -> None:
         description="GroundMemory workspace management CLI.",
     )
     parser.add_argument(
+        "--backup",
+        action="store_true",
+        help="Create a manual backup of the current workspace.",
+    )
+    parser.add_argument(
         "--restore",
         metavar="SPEC",
         help=(
@@ -99,7 +115,9 @@ def main() -> None:
 
     workspace_path = _get_workspace_path()
 
-    if args.list_backups:
+    if args.backup:
+        cmd_backup(workspace_path)
+    elif args.list_backups:
         cmd_list_backups(workspace_path)
     elif args.restore:
         cmd_restore(args.restore, workspace_path)

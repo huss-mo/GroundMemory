@@ -614,3 +614,72 @@ class TestMemoryCompactRegistered:
         assert "tier" in props
         assert "content" in props
         assert SCHEMA["parameters"]["required"] == ["tier", "content"]
+
+
+# ===========================================================================
+# 10. CLI: groundmemory --backup
+# ===========================================================================
+
+
+class TestCLIBackup:
+    def test_cmd_backup_creates_zip(self, tmp_path):
+        from groundmemory.__main__ import cmd_backup
+        from groundmemory.core.backup import list_backups
+
+        ws = tmp_path / "ws"
+        ws.mkdir()
+        (ws / "MEMORY.md").write_text("# Memory\n", encoding="utf-8")
+        (ws / ".index").mkdir()
+
+        cmd_backup(ws)
+
+        backups = list_backups(ws)
+        assert len(backups) == 1
+        assert backups[0].suffix == ".zip"
+
+    def test_cmd_backup_prints_stem_and_path(self, tmp_path, capsys):
+        from groundmemory.__main__ import cmd_backup
+
+        ws = tmp_path / "ws"
+        ws.mkdir()
+        (ws / ".index").mkdir()
+
+        cmd_backup(ws)
+
+        out = capsys.readouterr().out
+        assert "Backup created:" in out
+        assert str(ws) in out
+
+    def test_cmd_backup_multiple_calls_accumulate(self, tmp_path):
+        from groundmemory.__main__ import cmd_backup
+        from groundmemory.core.backup import list_backups
+        import time
+
+        ws = tmp_path / "ws"
+        ws.mkdir()
+        (ws / ".index").mkdir()
+
+        cmd_backup(ws)
+        time.sleep(1)  # ensure distinct timestamps
+        cmd_backup(ws)
+
+        assert len(list_backups(ws)) == 2
+
+    def test_backup_flag_wired_in_parser(self, tmp_path, monkeypatch, capsys):
+        """--backup flag reaches cmd_backup via main()."""
+        import sys
+        from groundmemory.__main__ import main
+        from groundmemory.core.backup import list_backups
+
+        ws = tmp_path / "ws"
+        ws.mkdir()
+        (ws / ".index").mkdir()
+
+        monkeypatch.setattr(sys, "argv", ["groundmemory", "--backup"])
+        monkeypatch.setattr(
+            "groundmemory.__main__._get_workspace_path", lambda: ws
+        )
+
+        main()
+
+        assert len(list_backups(ws)) == 1

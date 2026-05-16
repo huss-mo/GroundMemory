@@ -1104,11 +1104,14 @@ All settings are available as environment variables using the `GROUNDMEMORY_` pr
 
 **Backup and Restore**
 
-When compaction is triggered, GroundMemory automatically takes a zip backup of the workspace before the agent can modify any files. Backups are stored in `<workspace>/backups/YYYY-MM-DD_HHmmss.zip` and contain all Markdown files, the `daily/` directory, and `.index/memory.db`.
+GroundMemory automatically takes a zip backup of the workspace when compaction is triggered. You can also create a backup manually at any time. Backups are stored in `<workspace>/backups/YYYY-MM-DD_HHmmss.zip` and contain all Markdown files, the `daily/` directory, and `.index/memory.db`.
 
 Use the `groundmemory` CLI to manage backups:
 
 ```bash
+# Create a manual backup
+groundmemory --backup
+
 # List all backups for the current workspace
 groundmemory --list-backups
 
@@ -1125,7 +1128,7 @@ groundmemory --restore 2026-04-08
 groundmemory --restore 2026-04-08_165530
 ```
 
-The workspace is always resolved from your environment / config (same as `groundmemory-mcp`). Set `GROUNDMEMORY_WORKSPACE` or configure `workspace` in `groundmemory.yaml` to target a specific workspace before running the restore command.
+The workspace is always resolved from your environment / config (same as `groundmemory-mcp`). Set `GROUNDMEMORY_WORKSPACE` or configure `workspace` in `groundmemory.yaml` to target a specific workspace before running these commands.
 
 If a date matches multiple backups, the command prints the list and exits - you can then use the full timestamp to disambiguate. After restoring, restart the MCP server if it is running.
 
