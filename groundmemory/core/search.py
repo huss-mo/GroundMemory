@@ -7,8 +7,8 @@ Pipeline:
   3. Run FTS5 keyword search → top_k * candidate_multiplier candidates
   4. Merge & re-score: score = vector_weight * vec_score + (1-vector_weight) * text_score
   5. Cross-encoder reranking (optional, if rerank_model is set)
-  6. Apply temporal decay (if configured) — post-rerank so recency nudges relevance scores
-  7. MMR diversification (optional, if mmr_lambda > 0) — greedily selects top_k results
+  6. Apply temporal decay (if configured) - post-rerank so recency nudges relevance scores
+  7. MMR diversification (optional, if mmr_lambda > 0) - greedily selects top_k results
      that balance relevance against similarity to already-selected results
   8. Graph expansion: extract entity mentions from top results, pull in related relations
   9. Return top_k final results

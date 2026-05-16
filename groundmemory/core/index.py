@@ -39,7 +39,7 @@ from groundmemory.core.chunker import Chunk
 #   2. Future portability targets (e.g. Pyodide/WASM) that may not support
 #      native extension loading at all.
 #
-# In both cases GroundMemory continues to function correctly -— only the ANN
+# In both cases GroundMemory continues to function correctly -- only the ANN
 # performance advantage of sqlite-vec is lost, not correctness.
 try:
     import sqlite_vec as _sqlite_vec  # type: ignore[import-untyped]
@@ -193,7 +193,7 @@ class MemoryIndex:
         ).fetchone()
 
         if stored is None:
-            # First time — create the table and record the dimension.
+            # First time - create the table and record the dimension.
             with self._conn:
                 self._conn.execute(
                     f"CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks "
@@ -206,7 +206,7 @@ class MemoryIndex:
         else:
             existing_dim = int(stored["value"])
             if existing_dim != dim:
-                # Embedding model changed — rebuild the vec table from scratch.
+                # Embedding model changed - rebuild the vec table from scratch.
                 with self._conn:
                     self._conn.execute("DROP TABLE IF EXISTS vec_chunks")
                     self._conn.execute(
@@ -435,7 +435,7 @@ class MemoryIndex:
         if tbl is None:
             return self._vector_search_numpy(query_embedding, top_k, source_filter, model_id)
 
-        # Normalise query to unit length — same transform applied at index time.
+        # Normalise query to unit length - same transform applied at index time.
         q = np.array(query_embedding, dtype=np.float32)
         q_norm = np.linalg.norm(q)
         if q_norm == 0:

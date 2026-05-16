@@ -114,7 +114,7 @@ def parse_spec(spec: str, backups: list[Path]) -> Path | None:
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
-        # Ambiguous — caller should print the list and exit
+        # Ambiguous - caller should print the list and exit
         return None
 
     return None

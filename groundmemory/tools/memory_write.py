@@ -50,7 +50,7 @@ SCHEMA = {
         "  REPLACE_LINES- supply `start_line` + `end_line` + non-empty `content`; replaces that line range.\n"
         "  DELETE       - supply `start_line` + `end_line` + `content=\"\"`; hard-deletes those lines.\n\n"
         "Append targets: 'MEMORY.md' (long-term facts), 'USER.md' (user profile), "
-        "'AGENTS.md' (agent rules), 'daily' (today's log).\n"
+        "'AGENTS.md' (agent identity, character, and rules), 'daily' (today's log).\n"
         "Edit targets (replace/delete): 'USER.md', 'AGENTS.md', 'RELATIONS.md'.\n"
         "MEMORY.md and daily/*.md are append-only and cannot be edited or deleted.\n\n"
         "Before appending to MEMORY.md, USER.md, or AGENTS.md use memory_read with a query "

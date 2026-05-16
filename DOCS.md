@@ -638,7 +638,7 @@ Nine-step pipeline:
 4. **Merge & re-score** - `score = vector_weight × vec_score + (1 − vector_weight) × bm25_score`.
 5. **Cross-encoder reranking** (optional) - if `search.rerank_model` is set, a cross-encoder rescores the merged candidates for higher precision.
 6. **Temporal decay** - `score × exp(−decay_rate × days_old)` (disabled by default; applied post-rerank so recency nudges the final order).
-7. **MMR diversification** (optional) - if `search.mmr_lambda > 0`, Maximal Marginal Relevance greedily selects `top_k` results that balance relevance against similarity to already-selected results: `mmr_score = mmr_lambda × relevance − (1 − mmr_lambda) × max_cosine_sim_to_selected`. Set via config only — not exposed as a tool parameter.
+7. **MMR diversification** (optional) - if `search.mmr_lambda > 0`, Maximal Marginal Relevance greedily selects `top_k` results that balance relevance against similarity to already-selected results: `mmr_score = mmr_lambda × relevance − (1 − mmr_lambda) × max_cosine_sim_to_selected`. Set via config only - not exposed as a tool parameter.
 8. **Graph expansion** - extract entity mentions from top results, attach related relation triples as `relation_context`.
 9. Return top `k` as `SearchResult` objects.
 
@@ -1127,7 +1127,7 @@ groundmemory --restore 2026-04-08_165530
 
 The workspace is always resolved from your environment / config (same as `groundmemory-mcp`). Set `GROUNDMEMORY_WORKSPACE` or configure `workspace` in `groundmemory.yaml` to target a specific workspace before running the restore command.
 
-If a date matches multiple backups, the command prints the list and exits — you can then use the full timestamp to disambiguate. After restoring, restart the MCP server if it is running.
+If a date matches multiple backups, the command prints the list and exits - you can then use the full timestamp to disambiguate. After restoring, restart the MCP server if it is running.
 
 **Configuration priority (highest wins):**
 

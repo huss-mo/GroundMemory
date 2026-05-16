@@ -273,13 +273,13 @@ class TestMMRIntegration:
     Full-pipeline tests using the MCP session fixture.
     These verify that mmr_lambda is honoured from SearchConfig and does not crash.
 
-    mmr_lambda is a config-level knob — it is NOT exposed as a tool parameter.
+    mmr_lambda is a config-level knob - it is NOT exposed as a tool parameter.
     Tests exercise it by mutating session.config.search.mmr_lambda directly,
     which is the same object hybrid_search reads from at call time.
     """
 
     def test_mmr_disabled_by_default(self, session):
-        """Default SearchConfig has mmr_lambda=0.0 — pipeline must not crash."""
+        """Default SearchConfig has mmr_lambda=0.0 - pipeline must not crash."""
         assert session.config.search.mmr_lambda == 0.0
         session.execute_tool("memory_write", file="MEMORY.md", content="The quick brown fox.")
         r = session.execute_tool("memory_read", query="quick fox")
@@ -312,7 +312,7 @@ class TestMMRIntegration:
         assert len(r["results"]) <= 3
 
     def test_mmr_lambda_one_same_as_disabled(self, session):
-        """mmr_lambda=1.0 is pure relevance — results should be non-empty and valid."""
+        """mmr_lambda=1.0 is pure relevance - results should be non-empty and valid."""
         session.config.search.mmr_lambda = 1.0
         session.execute_tool("memory_write", file="MEMORY.md", content="Lambda one test content.")
         r = session.execute_tool("memory_read", query="Lambda one test")

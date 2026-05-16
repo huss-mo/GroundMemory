@@ -1,7 +1,7 @@
 """
 Unit tests for the sqlite-vec fast-path in MemoryIndex.vector_search().
 
-These tests exercise the vec0 KNN path directly — they bypass the MCP layer
+These tests exercise the vec0 KNN path directly - they bypass the MCP layer
 and tool system and operate on MemoryIndex in isolation.
 
 All tests gracefully skip when sqlite-vec is not installed, so the suite
@@ -128,7 +128,7 @@ class TestVecTable:
         chunk_a = _make_chunk(path, "c1", "dim4")
         idx.upsert_chunks([chunk_a], [[0.1, 0.2, 0.3, 0.4]], "model-a")
 
-        # Now upsert with a different dimension — should rebuild without error.
+        # Now upsert with a different dimension - should rebuild without error.
         chunk_b = _make_chunk(path, "c2", "dim3")
         idx.upsert_chunks([chunk_b], [[0.1, 0.2, 0.3]], "model-b")
 
