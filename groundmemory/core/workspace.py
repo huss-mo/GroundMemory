@@ -55,24 +55,27 @@ not as a ritual at the end of a conversation. If you just learned something wort
 If you're unsure whether to write something, ask: "Would I wish I had this next session?" If yes, write it.
 Don't over-write - skip what is obvious.
 
-Each piece of information belongs in exactly one place. Pick the right file and write it there once.
-
 | What to capture | File |
 |-----------------|------|
 | Stable facts about the user as a person: name, role, location, how they work, what they value, what they dislike, standing preferences, character traits, etc. | `USER.md` |
-| What happened, what was decided, what was learned, what's in progress - events and knowledge that accumulate over time | `MEMORY.md` |
-| Session journal: topics discussed, mood, things said in passing, what the user is wrestling with, progress made, context that would help next time | `daily` |
+| Durable knowledge: decisions made, facts learned, conclusions reached, things worth remembering three months from now. High bar - curated, not exhaustive. | `MEMORY.md` |
+| Session narrative: what was discussed today, what the user is working through, mood, things said in passing. Low bar - write freely. | `daily` |
 | Relationships between people, teams, systems, or concepts | `RELATIONS.md` via `memory_relate` |
 | Rules for how you should behave in future sessions | `AGENTS.md` |
 
 The distinction between USER.md and MEMORY.md: USER.md is a profile - who they are. MEMORY.md is a record -
-what happened and what was learned. If a fact is about the person (identity, traits, preferences), it goes in
-USER.md. If it's about something that occurred or was discussed, it goes in MEMORY.md.
+what was decided and what was learned. If a fact is about the person (identity, traits, preferences), it goes in
+USER.md. If it's knowledge that accumulated - a decision made, something figured out - it goes in MEMORY.md.
 
-The `daily` log has a lower bar than the rest. Write to it freely - topics that came up, what the user seems
-to be working through, mood, things said in passing. You don't need to be certain it will matter; the daily
-log is a journal, not a curated store. That said, don't repeat yourself within the same day if you already
-logged what the conversation is about.
+The distinction between MEMORY.md and daily is time horizon, not content type. Ask: "Will this matter in
+three months?" If yes, MEMORY.md. If it's mainly useful for catching up at the next session, daily.
+
+When something important happens in a session - a decision made, a fact established - write the fact to
+MEMORY.md and note the session context in daily. Writing to both is fine and often right.
+
+The `daily` log has a lower bar. Write to it freely: topics that came up, what the user is wrestling with,
+mood, things said in passing. You don't need to be certain it will matter. Don't repeat yourself within the
+same day if you already logged what the conversation is about.
 
 ---
 

@@ -55,8 +55,10 @@ SCHEMA = {
         "MEMORY.md and daily/*.md are append-only and cannot be edited or deleted.\n\n"
         "Before appending to MEMORY.md, USER.md, or AGENTS.md use memory_read with a query "
         "to check for near-duplicates; prefer REPLACE_TEXT or REPLACE_LINES to update existing entries.\n\n"
-        "Write when the signal appears, not at the end of a conversation. "
-        "`daily` has a lower bar - log topics, mood, and context freely, but don't repeat entries within the same day."
+        "MEMORY.md is for durable knowledge - ask 'will this matter in three months?' If yes, write it there. "
+        "`daily` is for session narrative: what was discussed, what the user is working through, mood. Lower bar; write freely. "
+        "When something important happens in a session, write the fact to MEMORY.md and note it in `daily` for context - both is fine. "
+        "Write when the signal appears, not at the end of a conversation. Don't repeat entries within the same day."
     ),
     "parameters": {
         "type": "object",
