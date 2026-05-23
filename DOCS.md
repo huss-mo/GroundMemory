@@ -120,7 +120,7 @@ GroundMemory reads config from `~/.groundmemory/` - the same directory where wor
 
 ```
 ~/.groundmemory/
-├── .env                  ← config file (copy from .env.example in the repo root)
+├── .env                  ← config file (copy from groundmemory/config/.env.example)
 └── default/              ← workspace data (auto-created on first run)
     ├── MEMORY.md
     └── ...
@@ -131,7 +131,7 @@ GroundMemory reads config from `~/.groundmemory/` - the same directory where wor
 Copy the example file to get started:
 
 ```bash
-cp .env.example ~/.groundmemory/.env
+cp groundmemory/config/.env.example ~/.groundmemory/.env
 ```
 
 ### Network Access
@@ -789,11 +789,11 @@ No configuration file is required. With no config, GroundMemory uses BM25-only s
 
 **Finding the example config file**
 
-`.env.example` is in the repository root and contains every available setting with descriptions and defaults. Copy it to get started:
+`groundmemory/config/.env.example` contains every available setting with descriptions and defaults. Copy it to get started:
 
 ```bash
-cp .env.example ~/.groundmemory/.env   # pip install
-cp .env.example ./data/.env            # Docker
+cp groundmemory/config/.env.example ~/.groundmemory/.env   # pip install
+cp groundmemory/config/.env.example .env                   # Docker
 ```
 
 ---

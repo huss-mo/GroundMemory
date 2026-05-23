@@ -321,7 +321,7 @@ class groundmemoryConfig(BaseSettings):
     Custom files (JSON array):
         GROUNDMEMORY_CUSTOM_FILES='[{"name":"RESEARCH.md","description":"Research notes","inject":true,"searchable":true,"compactable":false}]'
 
-    See .env.example in the repository root for the full reference.
+    See groundmemory/config/.env.example for the full reference.
     """
 
     model_config = SettingsConfigDict(
