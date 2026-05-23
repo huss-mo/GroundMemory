@@ -117,6 +117,13 @@ def _run_search(
     source_filter: Optional[str] = None
     if file:
         source_filter = _file_to_source(file)
+        if source_filter is None:
+            custom = next(
+                (f for f in session.config.custom_files if f.name.upper() == file.strip().upper()),
+                None,
+            )
+            if custom:
+                source_filter = custom.name.replace(".md", "").replace(".MD", "").lower()
 
     results = hybrid_search(
         query=query,

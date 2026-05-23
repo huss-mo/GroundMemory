@@ -72,8 +72,8 @@ def run(session, target: str = "files", file: str | None = None) -> dict:
             }
         )
 
-    # --- list all memory files ---
-    all_files = ws.all_memory_files()
+    # --- list all memory files (including non-searchable custom files) ---
+    all_files = ws.all_files()
     entries = []
     for path in all_files:
         try:

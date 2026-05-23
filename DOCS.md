@@ -854,6 +854,12 @@ All settings are available as environment variables using the `GROUNDMEMORY_` pr
 | `GROUNDMEMORY_BOOTSTRAP__COMPACTION_TOKEN_COUNTER` | Token counting method: `"approx"` (`len // 4`) or `"tiktoken"` (accurate BPE, requires `pip install groundmemory[local]`). | `"approx"` |
 | `GROUNDMEMORY_BOOTSTRAP__COMPACTION_TIERS` | Memory files the agent is allowed to compact. Daily logs are never compacted. | `["MEMORY.md"]` |
 
+**Custom Files**
+
+| Variable | Description | Default |
+|---|---|---|
+| `GROUNDMEMORY_CUSTOM_FILES` | JSON array of custom file configs (see below) | `[]` |
+
 **General**
 
 | Variable | Description | Default |
@@ -870,6 +876,40 @@ All settings are available as environment variables using the `GROUNDMEMORY_` pr
 | `GROUNDMEMORY_MCP__ALLOWED_HOSTS` | Comma-separated list of `Host:` header values to allow (DNS-rebinding protection). `localhost` and `127.0.0.1` are always allowed. Required when `HOST=0.0.0.0`. | `` |
 | `GROUNDMEMORY_MCP__FORWARDED_ALLOW_IPS` | IPs uvicorn trusts to pass `X-Forwarded-For` headers. Not needed for plain LAN access - only set when a reverse proxy sits in front of GroundMemory. | `127.0.0.1` |
 | `GROUNDMEMORY_MCP__API_KEY` | Static bearer token required on every request. When unset (default), no authentication is enforced. Set when exposing the server beyond localhost. Clients must send `Authorization: Bearer <token>`. | *(unset)* |
+
+### Custom Files
+
+Custom files extend the standard memory tier set (MEMORY.md, USER.md, AGENTS.md, RELATIONS.md, daily/) with arbitrary Markdown files you define. Each custom file is fully integrated: it appears in bootstrap injection, participates in hybrid search, can be read and written via the standard tools, and is listed by `memory_list`.
+
+Declare custom files via the `GROUNDMEMORY_CUSTOM_FILES` environment variable (JSON array):
+
+```env
+GROUNDMEMORY_CUSTOM_FILES='[
+  {"name": "RESEARCH.md", "description": "Research notes and literature findings"},
+  {"name": "DECISIONS.md", "description": "Architectural decisions and their rationale", "compactable": true},
+  {"name": "GLOSSARY.md", "description": "Domain terminology", "inject": false, "max_chars": 3000}
+]'
+```
+
+**Per-file options:**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `name` | string | required | Filename (e.g. `RESEARCH.md`). Flat — no subdirectories. |
+| `description` | string | `""` | Short purpose text shown in tool schemas and as the bootstrap section header. Tell the agent what goes here. |
+| `inject` | bool | `true` | Include file content in the bootstrap system prompt at session start. |
+| `max_chars` | int or null | `null` | Max chars injected for this file. `null` uses the global `MAX_CHARS_PER_FILE` limit. |
+| `searchable` | bool | `true` | Index this file for vector and keyword search. Set to `false` for reference files you only read directly. |
+| `compactable` | bool | `false` | Include in `memory_compact` targets. The file will also appear in the compaction notice when memory is large. |
+
+**Behaviour:**
+- Custom files are created on first write — they do not need to exist before the agent runs.
+- If `inject=true` but the file does not exist or is empty, the bootstrap section is silently skipped.
+- Custom files support all four `memory_write` modes: append, replace_text, replace_lines, and delete. Unlike MEMORY.md and daily logs, they are not append-only.
+- In `memory_read` SEARCH mode, pass `file="RESEARCH.md"` to scope results to that file. In GET mode, pass `file="RESEARCH.md"` to read it directly.
+- Non-searchable custom files still appear in `memory_list`.
+
+**Agent guidance:** The agent learns about custom files through two channels — the `memory_write` tool schema (which lists each file's name and description) and the bootstrap header (which shows the file's content with the description as a section title). You do not need to write extensive system prompt instructions for each file; the `description` field is sufficient for most cases.
 
 **Backup and Restore**
 

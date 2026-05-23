@@ -90,25 +90,33 @@ def build_bootstrap_prompt(
     sections: list[str] = []
     total_chars = 0
 
-    def _add(title: str, path: Path | None, body: str | None = None, source: str = "") -> bool:
+    def _add(
+        title: str,
+        path: Path | None,
+        body: str | None = None,
+        source: str = "",
+        max_chars_override: int | None = None,
+    ) -> bool:
         """Add a section, respecting the total char budget. Returns False if budget exhausted."""
         nonlocal total_chars
         remaining = cfg.max_total_chars - total_chars
         if remaining <= 0:
             return False
 
+        per_file_max = max_chars_override if max_chars_override is not None else cfg.max_chars_per_file
+
         if body is None:
             if path is None or not path.exists():
                 return True
-            raw, truncated = _read_capped(path, min(cfg.max_chars_per_file, remaining))
+            raw, truncated = _read_capped(path, min(per_file_max, remaining))
             if not raw.strip():
                 return True
             body_text = raw
             if not source:
                 source = path.name
         else:
-            truncated = len(body) > cfg.max_chars_per_file
-            body_text = body[: cfg.max_chars_per_file] if truncated else body
+            truncated = len(body) > per_file_max
+            body_text = body[:per_file_max] if truncated else body
             if len(body_text) > remaining:
                 body_text = body_text[:remaining]
                 truncated = True
@@ -164,7 +172,17 @@ def build_bootstrap_prompt(
             if not _add(label, day_path, source=f"daily/{day_path.name}"):
                 break  # budget exhausted
 
-    # 6. First-run onboarding (FIRST_RUN.md) - injected last; skipped automatically once emptied
+    # 6. Custom files (declared via GROUNDMEMORY_CUSTOM_FILES config)
+    for cf in workspace.custom_files:
+        if not cf.inject:
+            continue
+        cf_path = workspace.path / cf.name
+        title = f"{cf.name} — {cf.description}" if cf.description else cf.name
+        per_file_max = cf.max_chars if cf.max_chars is not None else cfg.max_chars_per_file
+        if not _add(title, cf_path, max_chars_override=per_file_max):
+            break
+
+    # 7. First-run onboarding (FIRST_RUN.md) - injected last; skipped automatically once emptied
     if first_run_active:
         _add("First Run", workspace.first_run_file)
 
@@ -180,9 +198,12 @@ def build_bootstrap_prompt(
     footer = "\n<!-- groundmemory bootstrap end -->"
     body = header + "\n".join(sections)
 
-    # 7. Compaction notice: inject when requested
+    # 8. Compaction notice: inject when requested
     if inject_compaction_notice:
-        tiers_str = ", ".join(f"`{t}`" for t in cfg.compaction_tiers)
+        effective_tiers = list(cfg.compaction_tiers) + [
+            f.name for f in workspace.custom_files if f.compactable
+        ]
+        tiers_str = ", ".join(f"`{t}`" for t in effective_tiers)
         notice = _COMPACTION_NOTICE_TEMPLATE.format(tiers=tiers_str)
         body = body + _section("Memory Compaction Required", notice.strip())
 

@@ -32,6 +32,11 @@ def build_tool_registry(
         memory_compact,
     )
 
+    # Effective compaction tiers: configured standard tiers + compactable custom files
+    effective_tiers = list(config.bootstrap.compaction_tiers) + [
+        f.name for f in config.custom_files if f.compactable
+    ]
+
     if config.dispatcher_mode:
         # Single dispatcher tool only - replaces all individual tools.
         # bootstrap is available via action="bootstrap" inside the dispatcher.
@@ -39,25 +44,21 @@ def build_tool_registry(
             (memory_dispatcher.SCHEMA, memory_dispatcher.run),
         ]
     else:
-        # Core tools
+        # Core tools — memory_write schema is built with custom file awareness
+        import copy
+        write_schema = memory_write.build_schema(config.custom_files)
         all_tools = [
             (memory_bootstrap.SCHEMA, memory_bootstrap.run),
             (memory_read.SCHEMA, memory_read.run),
-            (memory_write.SCHEMA, memory_write.run),
+            (write_schema, memory_write.run),
             (memory_relate.SCHEMA, memory_relate.run),
         ]
         # Optional: memory_list (gated by config)
         if config.expose_memory_list:
             all_tools.append((memory_list.SCHEMA, memory_list.run))
-        # memory_compact is always registered - its availability is communicated
-        # through the bootstrap notice, not by hiding the tool.
-        # Inject the allowed tier enum from config so the agent only sees the
-        # tiers that are actually configured (not the full hard-coded safety set).
-        import copy
+        # memory_compact: inject effective tiers so the agent only sees eligible files
         compact_schema = copy.deepcopy(memory_compact.SCHEMA)
-        compact_schema["parameters"]["properties"]["tier"]["enum"] = list(
-            config.bootstrap.compaction_tiers
-        )
+        compact_schema["parameters"]["properties"]["tier"]["enum"] = effective_tiers
         all_tools.append((compact_schema, memory_compact.run))
 
     tool_runners: dict[str, object] = {schema["name"]: run for schema, run in all_tools}

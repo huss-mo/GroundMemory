@@ -6,6 +6,10 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from groundmemory.config import CustomFileConfig
 
 # Default content for workspace files created on first init
 _DEFAULT_MEMORY_MD = """\
@@ -245,9 +249,10 @@ class Workspace:
             └── memory.db       SQLite index (vector + FTS + relations)
     """
 
-    def __init__(self, workspace_path: Path) -> None:
+    def __init__(self, workspace_path: Path, custom_files: list[CustomFileConfig] | None = None) -> None:
         self.workspace_path = Path(workspace_path)
         self.path = self.workspace_path  # alias for backward-compat
+        self.custom_files: list[CustomFileConfig] = list(custom_files) if custom_files else []
         self._ensure_layout()
 
     # ------------------------------------------------------------------
@@ -321,7 +326,7 @@ class Workspace:
     # ------------------------------------------------------------------
 
     def all_memory_files(self) -> list[Path]:
-        """Return all Markdown files that should be indexed."""
+        """Return all Markdown files that should be indexed (searchable files only)."""
         files: list[Path] = []
         if self.memory_file.exists():
             files.append(self.memory_file)
@@ -333,6 +338,29 @@ class Workspace:
             files.append(self.relations_file)
         if self.daily_dir.exists():
             files.extend(sorted(self.daily_dir.glob("*.md")))
+        for cf in self.custom_files:
+            p = self.path / cf.name
+            if p.exists() and cf.searchable:
+                files.append(p)
+        return files
+
+    def all_files(self) -> list[Path]:
+        """Return all workspace Markdown files including non-searchable custom files."""
+        files: list[Path] = []
+        if self.memory_file.exists():
+            files.append(self.memory_file)
+        if self.user_file.exists():
+            files.append(self.user_file)
+        if self.agents_file.exists():
+            files.append(self.agents_file)
+        if self.relations_file.exists():
+            files.append(self.relations_file)
+        if self.daily_dir.exists():
+            files.extend(sorted(self.daily_dir.glob("*.md")))
+        for cf in self.custom_files:
+            p = self.path / cf.name
+            if p.exists():
+                files.append(p)
         return files
 
     def resolve_file(self, name: str) -> Path:

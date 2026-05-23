@@ -84,7 +84,7 @@ def sync_workspace(
             elif "daily" in path.parts:
                 source = "daily"
             else:
-                source = "memory"
+                source = path.stem.lower()
 
             # Chunk the file
             chunks = chunk_file(path, chunking)

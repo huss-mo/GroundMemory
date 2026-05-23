@@ -68,113 +68,48 @@ def file_hash(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def write_long_term(workspace: Workspace, content: str) -> dict:
-    """
-    Append *content* to MEMORY.md under a timestamped section header.
-
-    Deduplication: if the exact same content body already exists anywhere in
-    the file, the write is skipped and the existing entry is reported.  This
-    makes the operation idempotent on retries (e.g. from MCP clients that
-    retry on apparent errors).
-
-    Returns metadata about the write.
-    """
-    path = workspace.memory_file
+def _timestamped_append(path: Path, content: str, tier: str, workspace_path: Path) -> dict:
+    """Shared timestamped-append + dedup logic used by all per-tier write functions."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     body = content.strip()
     entry = f"\n## {timestamp}\n\n{body}\n"
-
     existing = path.read_text(encoding="utf-8") if path.exists() else ""
-
-    # Skip write if this exact content body is already present in the file
     if body and body in existing:
         return {
-            "file": str(path.relative_to(workspace.path)),
-            "tier": "long_term",
+            "file": str(path.relative_to(workspace_path)),
+            "tier": tier,
             "timestamp": timestamp,
             "chars_written": 0,
             "deduplicated": True,
         }
-
     _atomic_write(path, existing + entry)
-
     return {
-        "file": str(path.relative_to(workspace.path)),
-        "tier": "long_term",
+        "file": str(path.relative_to(workspace_path)),
+        "tier": tier,
         "timestamp": timestamp,
         "chars_written": len(entry),
         "deduplicated": False,
     }
+
+
+def write_long_term(workspace: Workspace, content: str) -> dict:
+    """Append *content* to MEMORY.md under a timestamped section header (with dedup)."""
+    return _timestamped_append(workspace.memory_file, content, "long_term", workspace.path)
 
 
 def write_user(workspace: Workspace, content: str) -> dict:
-    """
-    Append *content* to USER.md under a timestamped section header.
-
-    Deduplication: skips write if the exact content body is already present.
-
-    Returns metadata about the write.
-    """
-    path = workspace.user_file
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    body = content.strip()
-    entry = f"\n## {timestamp}\n\n{body}\n"
-
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
-
-    if body and body in existing:
-        return {
-            "file": str(path.relative_to(workspace.path)),
-            "tier": "user",
-            "timestamp": timestamp,
-            "chars_written": 0,
-            "deduplicated": True,
-        }
-
-    _atomic_write(path, existing + entry)
-
-    return {
-        "file": str(path.relative_to(workspace.path)),
-        "tier": "user",
-        "timestamp": timestamp,
-        "chars_written": len(entry),
-        "deduplicated": False,
-    }
+    """Append *content* to USER.md under a timestamped section header (with dedup)."""
+    return _timestamped_append(workspace.user_file, content, "user", workspace.path)
 
 
 def write_agents(workspace: Workspace, content: str) -> dict:
-    """
-    Append *content* to AGENTS.md under a timestamped section header.
+    """Append *content* to AGENTS.md under a timestamped section header (with dedup)."""
+    return _timestamped_append(workspace.agents_file, content, "agent", workspace.path)
 
-    Deduplication: skips write if the exact content body is already present.
 
-    Returns metadata about the write.
-    """
-    path = workspace.agents_file
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    body = content.strip()
-    entry = f"\n## {timestamp}\n\n{body}\n"
-
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
-
-    if body and body in existing:
-        return {
-            "file": str(path.relative_to(workspace.path)),
-            "tier": "agent",
-            "timestamp": timestamp,
-            "chars_written": 0,
-            "deduplicated": True,
-        }
-
-    _atomic_write(path, existing + entry)
-
-    return {
-        "file": str(path.relative_to(workspace.path)),
-        "tier": "agent",
-        "timestamp": timestamp,
-        "chars_written": len(entry),
-        "deduplicated": False,
-    }
+def write_custom(path: Path, content: str, workspace_path: Path) -> dict:
+    """Append *content* to an arbitrary custom file under a timestamped section header (with dedup)."""
+    return _timestamped_append(path, content, "custom", workspace_path)
 
 
 def write_daily(workspace: Workspace, content: str, day: Optional[date] = None) -> dict:

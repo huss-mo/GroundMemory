@@ -41,35 +41,47 @@ _RELATIONS_FORMAT_REMINDER = (
     "Each non-blank line must follow: - [Subject] --predicate--> [Object] (YYYY-MM-DD)"
 )
 
-SCHEMA = {
-    "name": "memory_write",
-    "description": (
-        "Write to memory. Four modes selected by the parameters you supply:\n\n"
-        "  APPEND       - omit start_line/end_line/search; `file` + `content` appends to that file.\n"
-        "  REPLACE_TEXT - supply `search`; replaces the first exact occurrence with `content`.\n"
-        "  REPLACE_LINES- supply `start_line` + `end_line` + non-empty `content`; replaces that line range.\n"
-        "  DELETE       - supply `start_line` + `end_line` + `content=\"\"`; hard-deletes those lines.\n\n"
-        "Append targets: 'MEMORY.md' (long-term facts), 'USER.md' (user profile), "
-        "'AGENTS.md' (agent identity, character, and rules), 'daily' (today's log).\n"
-        "Edit targets (replace/delete): 'USER.md', 'AGENTS.md', 'RELATIONS.md'.\n"
-        "MEMORY.md and daily/*.md are append-only and cannot be edited or deleted.\n\n"
-        "Before appending to MEMORY.md, USER.md, or AGENTS.md use memory_read with a query "
-        "to check for near-duplicates; prefer REPLACE_TEXT or REPLACE_LINES to update existing entries.\n\n"
-        "MEMORY.md is for durable knowledge - ask 'will this matter in three months?' If yes, write it there. "
-        "`daily` is for session narrative: what was discussed, what the user is working through, mood. Lower bar; write freely. "
-        "When something important happens in a session, write the fact to MEMORY.md and note it in `daily` for context - both is fine. "
-        "Write when the signal appears, not at the end of a conversation. Don't repeat entries within the same day."
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "file": {
-                "type": "string",
-                "description": (
-                    "Target file. Append targets: 'MEMORY.md', 'USER.md', 'AGENTS.md', 'daily'. "
-                    "Edit targets: 'USER.md', 'AGENTS.md', 'RELATIONS.md'."
-                ),
-            },
+def build_schema(custom_files=()) -> dict:
+    """Build the memory_write tool schema, optionally listing custom files."""
+    file_desc = (
+        "Target file. Append targets: 'MEMORY.md', 'USER.md', 'AGENTS.md', 'daily'. "
+        "Edit targets: 'USER.md', 'AGENTS.md', 'RELATIONS.md'."
+    )
+    if custom_files:
+        lines = []
+        for cf in custom_files:
+            line = f"  '{cf.name}'"
+            if cf.description:
+                line += f" — {cf.description}"
+            lines.append(line)
+        file_desc += "\nCustom files (append + edit):\n" + "\n".join(lines)
+
+    return {
+        "name": "memory_write",
+        "description": (
+            "Write to memory. Four modes selected by the parameters you supply:\n\n"
+            "  APPEND       - omit start_line/end_line/search; `file` + `content` appends to that file.\n"
+            "  REPLACE_TEXT - supply `search`; replaces the first exact occurrence with `content`.\n"
+            "  REPLACE_LINES- supply `start_line` + `end_line` + non-empty `content`; replaces that line range.\n"
+            "  DELETE       - supply `start_line` + `end_line` + `content=\"\"`; hard-deletes those lines.\n\n"
+            "Append targets: 'MEMORY.md' (long-term facts), 'USER.md' (user profile), "
+            "'AGENTS.md' (agent identity, character, and rules), 'daily' (today's log).\n"
+            "Edit targets (replace/delete): 'USER.md', 'AGENTS.md', 'RELATIONS.md'.\n"
+            "MEMORY.md and daily/*.md are append-only and cannot be edited or deleted.\n\n"
+            "Before appending to MEMORY.md, USER.md, or AGENTS.md use memory_read with a query "
+            "to check for near-duplicates; prefer REPLACE_TEXT or REPLACE_LINES to update existing entries.\n\n"
+            "MEMORY.md is for durable knowledge - ask 'will this matter in three months?' If yes, write it there. "
+            "`daily` is for session narrative: what was discussed, what the user is working through, mood. Lower bar; write freely. "
+            "When something important happens in a session, write the fact to MEMORY.md and note it in `daily` for context - both is fine. "
+            "Write when the signal appears, not at the end of a conversation. Don't repeat entries within the same day."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "type": "string",
+                    "description": file_desc,
+                },
             "content": {
                 "type": "string",
                 "description": (
@@ -103,6 +115,9 @@ SCHEMA = {
         "required": ["file", "content"],
     },
 }
+
+
+SCHEMA = build_schema()
 
 
 def run(
@@ -249,10 +264,27 @@ def run(
             break
 
     if tier is None:
-        return err(
-            f"Unknown append target '{file}'. "
-            f"Valid targets: {list(_APPEND_FILE_TO_TIER.keys())}."
+        # Check configured custom files
+        custom = next(
+            (f for f in session.config.custom_files if f.name.upper() == file_upper),
+            None,
         )
+        if custom is None:
+            return err(
+                f"Unknown append target '{file}'. "
+                f"Valid targets: {list(_APPEND_FILE_TO_TIER.keys())}."
+            )
+        from groundmemory.core import sync as _sync
+        resolved = session.workspace.resolve_file(custom.name)
+        body = content.strip()
+        if tags:
+            body = " ".join(f"#{t}" for t in tags) + "\n" + body
+        result = storage.write_custom(resolved, body, session.workspace.path)
+        _sync.sync_file(resolved, session.index, session.provider, session.config.chunking)
+        result["mode"] = "append"
+        from groundmemory.tools.base import _auto_clear_first_run
+        _auto_clear_first_run(session)
+        return ok(result)
 
     from groundmemory.core import sync
 

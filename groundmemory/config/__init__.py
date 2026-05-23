@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -55,6 +55,28 @@ def _env_file_paths() -> tuple[str, str]:
     return (str(root / ".env"), ".env")
 
 
+
+
+# ---------------------------------------------------------------------------
+# Custom file config (a list item, not a BaseSettings)
+# ---------------------------------------------------------------------------
+
+class CustomFileConfig(BaseModel):
+    """Per-file configuration for a user-defined custom memory file.
+
+    Custom files extend the standard memory tier set (MEMORY.md, USER.md, etc.)
+    with arbitrary Markdown files declared in .env.
+
+    Environment variable (JSON array):
+        GROUNDMEMORY_CUSTOM_FILES='[{"name":"RESEARCH.md","description":"Research notes"}]'
+    """
+
+    name: str
+    description: str = ""
+    inject: bool = True
+    max_chars: Optional[int] = None
+    searchable: bool = True
+    compactable: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +318,9 @@ class groundmemoryConfig(BaseSettings):
         GROUNDMEMORY_EXPOSE_MEMORY_LIST=true  - expose memory_list tool
         GROUNDMEMORY_DISPATCHER_MODE=true     - replace all tools with single memory_tool dispatcher
 
+    Custom files (JSON array):
+        GROUNDMEMORY_CUSTOM_FILES='[{"name":"RESEARCH.md","description":"Research notes","inject":true,"searchable":true,"compactable":false}]'
+
     See .env.example in the repository root for the full reference.
     """
 
@@ -322,6 +347,10 @@ class groundmemoryConfig(BaseSettings):
     # Applies to both the MCP server and the Python API.
     # Env var: GROUNDMEMORY_DISPATCHER_MODE=true
     dispatcher_mode: bool = False
+
+    # User-defined custom memory files (JSON array in env var).
+    # Env var: GROUNDMEMORY_CUSTOM_FILES='[{"name":"RESEARCH.md","description":"..."}]'
+    custom_files: List[CustomFileConfig] = Field(default_factory=list)
 
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
