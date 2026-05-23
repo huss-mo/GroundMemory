@@ -315,6 +315,8 @@ class Workspace:
         self._seed(self.agents_file, _DEFAULT_AGENTS_MD)
         self._seed(self.relations_file, _DEFAULT_RELATIONS_MD)
         self._seed(self.first_run_file, _DEFAULT_FIRST_RUN_MD)
+        for cf in self.custom_files:
+            self._seed(self.path / cf.name, "")
 
     @staticmethod
     def _seed(path: Path, content: str) -> None:

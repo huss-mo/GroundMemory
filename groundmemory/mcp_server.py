@@ -185,6 +185,9 @@ def _register_tools(cfg: groundmemoryConfig) -> None:
         # Normal mode: four core tools.
         mcp.tool()(memory_bootstrap)
         mcp.tool()(memory_read)
+        write_schema = _t_write.build_schema(cfg.custom_files)
+        file_desc = write_schema["parameters"]["properties"]["file"]["description"]
+        memory_write.__doc__ = write_schema["description"] + f"\n\nfile: {file_desc}"
         mcp.tool()(memory_write)
         mcp.tool()(memory_relate)
         # Optional: memory_list gated by config.
@@ -212,7 +215,6 @@ def _register_tools(cfg: groundmemoryConfig) -> None:
 memory_tool.__doc__       = _t_dispatcher.SCHEMA["description"]
 memory_bootstrap.__doc__  = _t_bootstrap.SCHEMA["description"]
 memory_read.__doc__       = _t_read.SCHEMA["description"]
-memory_write.__doc__      = _t_write.SCHEMA["description"]
 memory_relate.__doc__     = _t_relate.SCHEMA["description"]
 memory_list.__doc__       = _t_list.SCHEMA["description"]
 memory_compact.__doc__    = _t_compact.SCHEMA["description"]

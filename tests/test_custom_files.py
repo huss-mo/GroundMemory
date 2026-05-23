@@ -112,19 +112,33 @@ class TestCustomFileWorkspace:
     def test_all_memory_files_skips_missing(self, tmp_path):
         cf = CustomFileConfig(name="MISSING.md", searchable=True)
         ws = Workspace(tmp_path / "ws", custom_files=[cf])
-        # File not created on disk
+        (ws.path / "MISSING.md").unlink()  # simulate manual deletion
         paths = ws.all_memory_files()
         assert not any(p.name == "MISSING.md" for p in paths)
 
     def test_all_files_skips_missing(self, tmp_path):
         cf = CustomFileConfig(name="MISSING.md")
         ws = Workspace(tmp_path / "ws", custom_files=[cf])
+        (ws.path / "MISSING.md").unlink()  # simulate manual deletion
         paths = ws.all_files()
         assert not any(p.name == "MISSING.md" for p in paths)
 
     def test_no_custom_files_is_default(self, tmp_path):
         ws = Workspace(tmp_path / "ws")
         assert ws.custom_files == []
+
+    def test_custom_file_auto_created_on_init(self, tmp_path):
+        cf = CustomFileConfig(name="TRAINING.md")
+        ws = Workspace(tmp_path / "ws", custom_files=[cf])
+        assert (ws.path / "TRAINING.md").exists()
+
+    def test_custom_file_not_overwritten_if_exists(self, tmp_path):
+        ws_path = tmp_path / "ws"
+        ws_path.mkdir(parents=True)
+        (ws_path / "TRAINING.md").write_text("existing content", encoding="utf-8")
+        cf = CustomFileConfig(name="TRAINING.md")
+        Workspace(ws_path, custom_files=[cf])
+        assert (ws_path / "TRAINING.md").read_text(encoding="utf-8") == "existing content"
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +200,7 @@ class TestCustomFileBootstrap:
     def test_missing_file_silently_skipped(self, tmp_path):
         cf = CustomFileConfig(name="ABSENT.md", inject=True)
         ws = Workspace(tmp_path / "ws", custom_files=[cf])
-        # File never written to disk
+        (ws.path / "ABSENT.md").unlink()  # simulate manual deletion
         cfg = BootstrapConfig()
         result = build_bootstrap_prompt(ws, cfg)
         assert "ABSENT.md" not in result
