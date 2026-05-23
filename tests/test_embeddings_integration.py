@@ -5,14 +5,14 @@ Two test markers gate these tests:
 
   local
     Requires: pip install groundmemory[local]  (sentence-transformers)
-    Model names are read from groundmemory.yaml / .env:
+    Model names are read from .env:
       embedding.local_model  (default: sentence-transformers/all-MiniLM-L6-v2)
       search.rerank_model    (used by reranker tests, not here)
     Skipped automatically when sentence-transformers is not importable.
 
   api_embeddings
     Requires: a configured OpenAI-compatible HTTP embedding endpoint.
-    All settings are read from groundmemory.yaml / .env:
+    All settings are read from .env:
       embedding.provider   must be "openai"
       embedding.base_url
       embedding.api_key
@@ -41,7 +41,7 @@ from groundmemory.session import MemorySession
 # ---------------------------------------------------------------------------
 
 def _load_config() -> groundmemoryConfig:
-    """Load config from groundmemory.yaml / .env (standard priority chain)."""
+    """Load config from .env and environment variables."""
     return groundmemoryConfig.auto()
 
 
@@ -113,15 +113,14 @@ def api_session(tmp_path_factory):
     """
     MemorySession backed by the OpenAI-compatible HTTP embedding provider.
 
-    - All settings (base_url, api_key, model) are read from groundmemory.yaml / .env.
+    - All settings (base_url, api_key, model) are read from .env.
     - Skips if embedding.provider != "openai" or the endpoint is unreachable.
     """
     cfg = _load_config()
 
     if cfg.embedding.provider != "openai":
         pytest.skip(
-            "API embeddings not configured (set embedding.provider=openai in "
-            "groundmemory.yaml or .env)"
+            "API embeddings not configured (set GROUNDMEMORY_EMBEDDING__PROVIDER=openai in .env)"
         )
 
     tmp = tmp_path_factory.mktemp("api_session")

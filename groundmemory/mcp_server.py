@@ -273,9 +273,6 @@ class BearerTokenMiddleware(BaseHTTPMiddleware):
 def main() -> None:
     import uvicorn
 
-    from groundmemory.config import _seed_example_config
-
-    _seed_example_config()
     cfg = groundmemoryConfig.auto()
     app = mcp.streamable_http_app()
     if cfg.mcp.api_key:

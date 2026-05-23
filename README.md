@@ -255,7 +255,7 @@ pytest
 pytest -m local
 
 # API embedding tests - OpenAI-compatible HTTP endpoint
-# Requires: endpoint configured via .env or groundmemory.yaml (see below)
+# Requires: endpoint configured via .env (see below)
 pytest -m api_embeddings
 
 # All marked tests together
@@ -270,27 +270,15 @@ Model names are read from config (`embedding.local_model`, `search.rerank_model`
 They skip automatically when `sentence-transformers` is not installed.
 
 **`api_embeddings` tests** require a configured OpenAI-compatible embedding endpoint.
-All settings are read from `.env` or `groundmemory.yaml` - whichever is found first
-(`.env` takes priority). The tests skip automatically when `embedding.provider` is
-not `openai` or the endpoint is unreachable.
+All settings are read from `.env` (project root or `~/.groundmemory/`). The tests skip automatically when `embedding.provider` is not `openai` or the endpoint is unreachable.
 
-Minimal `.env` for `api_embeddings` (project root or `~/.groundmemory/`):
+Minimal `.env` for `api_embeddings`:
 
 ```env
 GROUNDMEMORY_EMBEDDING__PROVIDER=openai
 GROUNDMEMORY_EMBEDDING__BASE_URL=http://localhost:11434/v1
 GROUNDMEMORY_EMBEDDING__API_KEY=ollama
 GROUNDMEMORY_EMBEDDING__MODEL=nomic-embed-text
-```
-
-Or equivalently via `groundmemory.yaml`:
-
-```yaml
-embedding:
-  provider: openai
-  base_url: http://localhost:11434/v1
-  api_key: ollama
-  model: nomic-embed-text
 ```
 
 Any OpenAI-compatible endpoint works: OpenAI, Ollama, LM Studio, LiteLLM, etc.

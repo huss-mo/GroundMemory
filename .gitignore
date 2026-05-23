@@ -1,6 +1,5 @@
 # GroundMemory - local config files (do not commit secrets or personal settings)
 .env
-groundmemory.yaml
 
 # Python
 __pycache__/

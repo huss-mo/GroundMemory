@@ -3,27 +3,25 @@ groundmemory configuration - driven by Pydantic Settings.
 
 Priority (highest → lowest):
   1. Constructor kwargs (programmatic overrides)
-  2. Environment variables  (groundmemory_* prefix)
-  3. .env file             ($groundmemory_ROOT_DIR/.env, then ./.env in cwd)
-  4. groundmemory.yaml       ($groundmemory_ROOT_DIR/groundmemory.yaml, then ./groundmemory.yaml in cwd)
-  5. Built-in defaults
+  2. Environment variables  (GROUNDMEMORY_* prefix)
+  3. .env file             ($GROUNDMEMORY_ROOT_DIR/.env, then ./.env in cwd)
+  4. Built-in defaults
 
-$groundmemory_ROOT_DIR defaults to ~/.groundmemory (pip installs) and is set to /data
+$GROUNDMEMORY_ROOT_DIR defaults to ~/.groundmemory (pip installs) and is set to /data
 in the official Docker image (mounted from ./data on the host).
 
-Config file locations by install method:
-  pip install / editable:  ~/.groundmemory/.env  or  ~/.groundmemory/groundmemory.yaml
-  Docker:                  ./data/.env          or  ./data/groundmemory.yaml  (host paths)
-  dev / cwd override:      ./.env               or  ./groundmemory.yaml
+Config file location by install method:
+  pip install / editable:  ~/.groundmemory/.env
+  Docker:                  ./data/.env  (host path, mounted at /data)
+  dev / cwd override:      ./.env
 """
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, List, Literal, Optional
+from typing import List, Literal, Optional
 
-import yaml
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -57,49 +55,6 @@ def _env_file_paths() -> tuple[str, str]:
     return (str(root / ".env"), ".env")
 
 
-def _seed_example_config() -> None:
-    """Copy the bundled example config files into root_dir on first run.
-
-    Copies both ``groundmemory.yaml.example`` and ``.env.example`` from the
-    ``groundmemory.config`` package into ``$groundmemory_ROOT_DIR/`` the first
-    time ``groundmemory-mcp`` starts.  Each file is only written when it does
-    not already exist, so subsequent runs are a no-op.
-
-    Uses ``importlib.resources`` so it works for both wheel installs
-    (``pip install groundmemory``) and editable installs (``pip install -e .``).
-    """
-    import importlib.resources as pkg_resources
-
-    root = _get_root_dir()
-    try:
-        root.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        return  # Non-fatal - can't create root dir
-
-    dest = root / "groundmemory.yaml.example"
-    if not dest.exists():
-        try:
-            ref = pkg_resources.files("groundmemory.config").joinpath("groundmemory.yaml.example")
-            dest.write_bytes(ref.read_bytes())
-        except Exception:
-            pass  # Non-fatal - missing example file should never crash the server
-
-
-def _load_yaml_config(filename: str = "groundmemory.yaml") -> dict[str, Any]:
-    """Search for *filename* in root_dir then cwd; return parsed dict or {}.
-
-    Search order (first match wins):
-      1. $groundmemory_ROOT_DIR/<filename>  - global user config (~/.groundmemory/ or /data/ in Docker)
-      2. ./<filename>                     - cwd override (dev mode / project-level)
-    """
-    root = _get_root_dir()
-    candidates = [root / filename, Path.cwd() / filename]
-    for p in candidates:
-        if p.exists():
-            with p.open("r", encoding="utf-8") as f:
-                data = yaml.safe_load(f) or {}
-            return data
-    return {}
 
 
 # ---------------------------------------------------------------------------
@@ -328,21 +283,20 @@ class groundmemoryConfig(BaseSettings):
 
     Loaded in priority order:
       1. Constructor kwargs
-      2. Environment variables  (groundmemory_* prefix, double-underscore nesting)
-      3. .env file
-      4. groundmemory.yaml        (searched in cwd, then project root)
-      5. Defaults
+      2. Environment variables  (GROUNDMEMORY_* prefix, double-underscore nesting)
+      3. .env file             ($GROUNDMEMORY_ROOT_DIR/.env, then ./.env in cwd)
+      4. Defaults
 
     Environment variables use double-underscore (__) for nesting:
-        groundmemory_EMBEDDING__PROVIDER=openai
-        groundmemory_EMBEDDING__BASE_URL=http://localhost:11434/v1
-        groundmemory_SEARCH__TOP_K=10
+        GROUNDMEMORY_EMBEDDING__PROVIDER=openai
+        GROUNDMEMORY_EMBEDDING__BASE_URL=http://localhost:11434/v1
+        GROUNDMEMORY_SEARCH__TOP_K=10
 
     Tool-set flags (apply to both MCP server and Python API):
         GROUNDMEMORY_EXPOSE_MEMORY_LIST=true  - expose memory_list tool
         GROUNDMEMORY_DISPATCHER_MODE=true     - replace all tools with single memory_tool dispatcher
 
-    See groundmemory.yaml.example for the full YAML reference.
+    See .env.example in the repository root for the full reference.
     """
 
     model_config = SettingsConfigDict(
@@ -380,78 +334,11 @@ class groundmemoryConfig(BaseSettings):
     def workspace_path(self) -> Path:
         return self.root_dir / self.workspace
 
-    # ------------------------------------------------------------------
-    # YAML config factory
-    # ------------------------------------------------------------------
-
-    @classmethod
-    def from_yaml(cls, path: str | Path | None = None) -> "groundmemoryConfig":
-        """Load config from a YAML file, then overlay env vars on top.
-
-        Args:
-            path: Explicit path to a YAML file. If None, searches for
-                  ``groundmemory.yaml`` in cwd then project root.
-        """
-        if path is not None:
-            with open(path, "r", encoding="utf-8") as f:
-                data = yaml.safe_load(f) or {}
-        else:
-            data = _load_yaml_config()
-
-        # Build nested sub-configs from YAML data, then let env vars win.
-        # pydantic-settings gives init kwargs HIGHER priority than env vars,
-        # so we must NOT pass a YAML field as a kwarg if an env var is set for it.
-        expose_memory_list = data.pop("expose_memory_list", None)
-        dispatcher_mode = data.pop("dispatcher_mode", None)
-        embedding_data = data.pop("embedding", {})
-        chunking_data = data.pop("chunking", {})
-        search_data = data.pop("search", {})
-        relations_data = data.pop("relations", {})
-        bootstrap_data = data.pop("bootstrap", {})
-        mcp_data = data.pop("mcp", {})
-
-        def _filter_env_overrides(yaml_dict: dict, env_prefix: str) -> dict:
-            """Remove keys from yaml_dict that are already set via environment variables."""
-            filtered = {}
-            for k, v in yaml_dict.items():
-                env_key = f"{env_prefix}{k.upper()}"
-                if not os.environ.get(env_key):
-                    filtered[k] = v
-            return filtered
-
-        # Instantiate sub-configs (env vars override YAML values automatically)
-        embedding = EmbeddingConfig(**_filter_env_overrides(embedding_data, "GROUNDMEMORY_EMBEDDING__"))
-        chunking = ChunkingConfig(**_filter_env_overrides(chunking_data, "GROUNDMEMORY_CHUNKING__"))
-        search = SearchConfig(**_filter_env_overrides(search_data, "GROUNDMEMORY_SEARCH__"))
-        relations = RelationsConfig(**_filter_env_overrides(relations_data, "GROUNDMEMORY_RELATIONS__"))
-        bootstrap = BootstrapConfig(**_filter_env_overrides(bootstrap_data, "GROUNDMEMORY_BOOTSTRAP__"))
-        mcp = MCPConfig(**_filter_env_overrides(mcp_data, "GROUNDMEMORY_MCP__"))
-
-        extra: dict = {}
-        if expose_memory_list is not None and not os.environ.get("GROUNDMEMORY_EXPOSE_MEMORY_LIST"):
-            extra["expose_memory_list"] = expose_memory_list
-        if dispatcher_mode is not None and not os.environ.get("GROUNDMEMORY_DISPATCHER_MODE"):
-            extra["dispatcher_mode"] = dispatcher_mode
-
-        return cls(
-            embedding=embedding,
-            chunking=chunking,
-            search=search,
-            relations=relations,
-            bootstrap=bootstrap,
-            mcp=mcp,
-            **extra,
-            **data,
-        )
-
     @classmethod
     def auto(cls) -> "groundmemoryConfig":
-        """Auto-load: YAML file if present, otherwise pure env/defaults.
+        """Load config from .env file and environment variables.
 
         This is the recommended factory for most use cases - it respects the
-        full priority chain without requiring you to specify a file path.
+        full priority chain without requiring you to specify values explicitly.
         """
-        yaml_data = _load_yaml_config()
-        if yaml_data:
-            return cls.from_yaml.__func__(cls, None)  # type: ignore[attr-defined]
         return cls()

@@ -651,16 +651,10 @@ class TestBootstrapConfigDefault:
     def test_env_var_sets_true(self, monkeypatch):
         """groundmemory_BOOTSTRAP__SYNC_MEMORY_ON_BOOTSTRAP=true must be honoured."""
         monkeypatch.setenv("groundmemory_BOOTSTRAP__SYNC_MEMORY_ON_BOOTSTRAP", "true")
-        import groundmemory.config as _cfg_mod
-
-        monkeypatch.setattr(_cfg_mod, "_load_yaml_config", lambda filename="groundmemory.yaml": {})
         cfg = groundmemoryConfig.auto()
         assert cfg.bootstrap.sync_memory_on_bootstrap is True
 
     def test_env_var_sets_false(self, monkeypatch):
         monkeypatch.setenv("groundmemory_BOOTSTRAP__SYNC_MEMORY_ON_BOOTSTRAP", "false")
-        import groundmemory.config as _cfg_mod
-
-        monkeypatch.setattr(_cfg_mod, "_load_yaml_config", lambda filename="groundmemory.yaml": {})
         cfg = groundmemoryConfig.auto()
         assert cfg.bootstrap.sync_memory_on_bootstrap is False

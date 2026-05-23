@@ -45,7 +45,6 @@ For a project overview and quick start, see [README.md](README.md).
   - [Tech Stack](#tech-stack)
   - [Configuration](#configuration)
     - [Minimum Config](#minimum-config)
-    - [groundmemory.yaml Reference](#groundmemoryyaml-reference)
     - [Environment Variables](#environment-variables)
 
 ---
@@ -121,24 +120,19 @@ GroundMemory reads config from `~/.groundmemory/` - the same directory where wor
 
 ```
 ~/.groundmemory/
-├── .env                  ← environment-variable style config
-├── groundmemory.yaml       ← YAML style config
+├── .env                  ← config file (copy from .env.example in the repo root)
 └── default/              ← workspace data (auto-created on first run)
     ├── MEMORY.md
     └── ...
 ```
 
-Both `.env` and `groundmemory.yaml` are optional - use whichever format you prefer (or neither, and set env vars directly). Environment variables always take priority over config files.
+`.env` is optional - you can also set any setting directly as an environment variable. A `./.env` in the current working directory is also checked as a fallback, which is useful for per-project overrides in dev mode.
 
-On first run, `groundmemory-mcp` automatically copies an annotated example config into `~/.groundmemory/groundmemory.yaml.example` - the full YAML reference with every option documented. You can also find it in the repository at `GroundMemory/config/groundmemory.yaml.example`.
-
-For environment-variable style config, copy the bundled example manually:
+Copy the example file to get started:
 
 ```bash
-cp GroundMemory/config/.env.example ~/.groundmemory/.env
+cp .env.example ~/.groundmemory/.env
 ```
-
-**A cwd-level config file (`./groundmemory.yaml` or `./.env`) is also checked** as a fallback, which is useful for per-project overrides in dev mode.
 
 ### Network Access
 
@@ -155,20 +149,13 @@ GROUNDMEMORY_MCP__ALLOWED_HOSTS="192.168.1.50:4242" \
 groundmemory-mcp
 ```
 
-```yaml
-# groundmemory.yaml
-mcp:
-  host: 0.0.0.0
-  allowed_hosts: "192.168.1.50:4242"
-```
-
 For Docker, uncomment the two required network-access lines in `docker-compose.yml` (see the comments in that file).
 
 `allowed_hosts` is the DNS-rebinding protection allowlist - it controls which `Host:` header values the server accepts. List every address clients will use to reach the server (e.g. `192.168.1.50:4242`). `localhost` and `127.0.0.1` are always allowed implicitly. Only exact strings are supported - wildcards and CIDR ranges are not.
 
 **Authentication**
 
-When exposing the server beyond localhost, set `GROUNDMEMORY_MCP__API_KEY` (or `mcp.api_key` in YAML) to a secret token. Every request must then include:
+When exposing the server beyond localhost, set `GROUNDMEMORY_MCP__API_KEY` to a secret token. Every request must then include:
 
 ```
 Authorization: Bearer <your-token>
@@ -199,7 +186,7 @@ The `GROUNDMEMORY_MCP__FORWARDED_ALLOW_IPS` setting controls which upstream IPs 
 
 ### Embedding Providers
 
-GroundMemory supports three embedding providers. You can switch between them at any time by changing `GROUNDMEMORY_EMBEDDING__PROVIDER` (or `embedding.provider` in `groundmemory.yaml`). No data migration is required.
+GroundMemory supports three embedding providers. You can switch between them at any time by changing `GROUNDMEMORY_EMBEDDING__PROVIDER`. No data migration is required.
 
 | Provider | Value | Extra install required? | When to use |
 |---|---|---|---|
@@ -782,7 +769,7 @@ Next session: session.bootstrap() reloads persisted facts
 | Component | Technology |
 |---|---|
 | Language | Python 3.10+ |
-| Configuration | Pydantic Settings + PyYAML (YAML file + env vars) |
+| Configuration | Pydantic Settings (`.env` file + env vars) |
 | Database | SQLite via `sqlite3` stdlib, WAL mode (`PRAGMA journal_mode=WAL`) |
 | Full-text search | SQLite FTS5 (BM25) with auto-sync triggers |
 | Vector search | NumPy cosine similarity (pure Python; no native extension required) |
@@ -800,238 +787,20 @@ Next session: session.bootstrap() reloads persisted facts
 
 No configuration file is required. With no config, GroundMemory uses BM25-only search backed by SQLite - no API key, no GPU, no extra packages.
 
-**Finding the example config files**
+**Finding the example config file**
 
-Both example files are bundled with the package under `groundmemory/config/` in the repository:
+`.env.example` is in the repository root and contains every available setting with descriptions and defaults. Copy it to get started:
 
-- `groundmemory/config/groundmemory.yaml.example` - full YAML reference with every option documented
-- `groundmemory/config/.env.example` - all environment variables with descriptions and defaults
-
-For **pip installs**, `groundmemory-mcp` automatically copies `groundmemory.yaml.example` into `~/.groundmemory/` on first run. For **Docker installs**, copy the `.env.example` manually as shown in the [Docker quick-start](#option-1---docker) above.
-
-### groundmemory.yaml Reference
-
-**Config file search order (first match wins):**
-
-| Location | Resolved path | Use case |
-|---|---|---|
-| `$GROUNDMEMORY_ROOT_DIR/groundmemory.yaml` | `~/.groundmemory/groundmemory.yaml` (pip) or `/data/groundmemory.yaml` → `./data/groundmemory.yaml` on host (Docker) | Global user config - recommended for pip installs and Docker |
-| `./groundmemory.yaml` | cwd at process start | Per-project override in dev mode |
-
-The same search order applies to `.env` files (`$GROUNDMEMORY_ROOT_DIR/.env` then `./.env`).
-
-Settings in these files are overridden by environment variables, which in turn are overridden by constructor kwargs.
-
-```yaml
-# ---------------------------------------------------------------------------
-# General
-# ---------------------------------------------------------------------------
-
-# Root directory for all workspaces (default: ~/.groundmemory)
-# root_dir: ~/.groundmemory
-
-# Default workspace name
-# workspace: default
-
-# ---------------------------------------------------------------------------
-# Embedding provider
-# ---------------------------------------------------------------------------
-embedding:
-  # provider options:
-  #   "none"   - BM25 keyword search only (no vector search, no GPU needed) [default]
-  #   "openai" - OpenAI-compatible HTTP API (no extra install required)
-  #   "local"  - sentence-transformers (requires: pip install groundmemory[local])
-  provider: none
-
-  # --- sentence-transformers (provider: local) ---
-  # Requires: pip install groundmemory[local]  (not installed by default)
-  # Any model from https://www.sbert.net/docs/pretrained_models.html
-  # local_model: all-MiniLM-L6-v2      # fast, 384-dim, good quality
-  # local_model: all-mpnet-base-v2     # slower, 768-dim, higher quality
-
-  # --- OpenAI-compatible API (provider: openai) ---
-  # Supports: OpenAI, Ollama, LM Studio, vLLM, Mistral, Together, etc.
-  #
-  # Real OpenAI (leave base_url blank):
-  # base_url: ~
-  # api_key: sk-...
-  # model: text-embedding-3-small
-  #
-  # Ollama local server:
-  # base_url: http://localhost:11434/v1
-  # api_key: ollama          # required by the OpenAI client but ignored by Ollama
-  # model: nomic-embed-text  # pull with: ollama pull nomic-embed-text
-  #
-  # LM Studio:
-  # base_url: http://localhost:1234/v1
-  # api_key: lm-studio
-  # model: nomic-ai/nomic-embed-text-v1.5-GGUF
-  #
-  # OpenRouter:
-  # base_url: https://openrouter.ai/api/v1
-  # api_key: sk-or-...
-  # model: openai/text-embedding-3-small
-
-  # Number of texts sent per embedding API call
-  # batch_size: 64
-
-# ---------------------------------------------------------------------------
-# Hybrid search
-# ---------------------------------------------------------------------------
-search:
-  # Number of results returned by memory_search
-  top_k: 6
-
-  # Oversampling factor: top_k * candidate_multiplier candidates fetched per
-  # path (vector + keyword) before merging and re-ranking
-  candidate_multiplier: 4
-
-  # Weight for vector similarity score (0.0-1.0) used in Reciprocal Rank Fusion.
-  # keyword_weight = 1.0 - vector_weight.
-  # Set to 0.0 for pure BM25 (useful when provider: none).
-  vector_weight: 0.7
-
-  # Reciprocal Rank Fusion k constant.
-  # Controls how much rank differences influence the final score.
-  # Higher values flatten the curve (less penalisation for lower ranks).
-  # Standard value is 60; lower values (e.g. 10-20) amplify rank differences.
-  rrf_k: 60
-
-  # Temporal decay: score *= exp(-decay_rate * days_old)
-  # 0.0 disables decay; 0.01 halves relevance after ~70 days
-  temporal_decay_rate: 0.0
-
-  # MMR (Maximal Marginal Relevance) diversity
-  # 0.0 = disabled (pure relevance), 1.0 = maximum diversity
-  mmr_lambda: 0.0
-
-# ---------------------------------------------------------------------------
-# Text chunking
-# ---------------------------------------------------------------------------
-chunking:
-  # Target chunk size in approximate tokens (1 token ≈ 4 chars)
-  tokens: 400
-
-  # Overlap between consecutive chunks in approximate tokens
-  overlap: 80
-
-# ---------------------------------------------------------------------------
-# Bootstrap - system-prompt injection at session start
-# ---------------------------------------------------------------------------
-bootstrap:
-  # Maximum characters per file before a truncation warning is appended
-  max_chars_per_file: 10000
-
-  # Maximum total characters injected across all files
-  max_total_chars: 50000
-
-  # Which memory files to inject into the system prompt
-  inject_long_term_memory: true  # MEMORY.md
-  inject_user_profile: true      # USER.md
-  inject_agents: true            # AGENTS.md
-  inject_daily_logs: true        # daily/YYYY-MM-DD.md
-  inject_relations: true         # RELATIONS.md
-
-  # Number of daily log files to inject, counting back from today.
-  # 1 = today only (default), 2 = today + yesterday, 0 = none.
-  daily_log_days: 1
-
-  # Re-index all workspace files at the start of every session before injecting context.
-  #
-  # Purpose: if you edit memory files outside the agent (e.g. in a text editor
-  # or via git), the SQLite/vector index may be out of date. Enabling this
-  # ensures the index is always consistent with the files on disk.
-  #
-  # Leave disabled (false) in normal usage - the agent keeps the index in sync
-  # automatically after every memory_write / memory_relate / memory_delete call.
-  sync_memory_on_bootstrap: false
-
-  # --- Memory compaction ---
-  #
-  # Threshold is measured against compactable tiers only (MEMORY.md, USER.md,
-  # AGENTS.md). RELATIONS.md and daily logs are excluded from the count.
-  # Set to 0 (default) to disable compaction.
-  #
-  # compaction_token_threshold: 6000
-  # compaction_token_counter: approx   # "approx" or "tiktoken" (pip install groundmemory[local])
-  # compaction_tiers:
-  #   - MEMORY.md
-  #   # - USER.md
-  #   # - AGENTS.md
-
-# ---------------------------------------------------------------------------
-# MCP server (groundmemory-mcp command)
-# ---------------------------------------------------------------------------
-# mcp:
-  # Host address the MCP server binds to.
-  # Default "127.0.0.1" allows connections from this machine only.
-  # Set to "0.0.0.0" to accept connections from other machines (see below).
-  # host: 127.0.0.1
-
-  # TCP port the MCP server listens on.
-  # port: 4242
-
-  # --- Network access (disabled by default) ---
-  #
-  # By default, the server is local-only. To allow access from another machine:
-  #
-  # 1. Set host to "0.0.0.0" (binds to all interfaces).
-  # 2. Add the Host header value your client sends to allowed_hosts.
-  #    This is always your machine's IP:port as the client sees it.
-  #    "localhost" and "127.0.0.1" are always allowed and do not need to be listed.
-  #
-  # Example - LAN access (single address):
-  #   host: "0.0.0.0"
-  #   allowed_hosts: "192.168.1.50:4242"
-  #
-  # Example - LAN access (multiple addresses, comma-separated):
-  #   host: "0.0.0.0"
-  #   allowed_hosts: "192.168.1.50:4242,192.168.1.51:4242"
-  #
-  # Note: allowed_hosts requires exact Host header values - wildcards and
-  # CIDR ranges are not supported. Separate multiple values with commas.
-  #
-  # allowed_hosts: ""
-  #
-  # --- Reverse proxy / forwarded headers ---
-  #
-  # forwarded_allow_ips controls which upstream IPs uvicorn trusts to set
-  # X-Forwarded-For and X-Real-IP headers.
-  #
-  # You do NOT need to set this for plain LAN access (host: 0.0.0.0 +
-  # allowed_hosts). Only set it when a reverse proxy (nginx, Caddy, Traefik)
-  # sits in front of GroundMemory and forwards requests. Set it to the proxy's
-  # internal IP so uvicorn trusts the headers that proxy sends.
-  #
-  # forwarded_allow_ips: "127.0.0.1"
-  #
-  # --- Public internet ---
-  #
-  # GroundMemory has no authentication layer. Do not expose it directly to the
-  # public internet. Place it behind a reverse proxy (nginx, Caddy, Traefik)
-  # that handles TLS and authentication, then set host to "127.0.0.1" and
-  # add the public hostname to allowed_hosts:
-  #
-  #   host: "127.0.0.1"
-  #   allowed_hosts: "yourdomain.com"
-  #   forwarded_allow_ips: "127.0.0.1"
-  #
-  # --- Authentication ---
-  #
-  # Static bearer token required on every request. When unset (default), no
-  # authentication is enforced. Set this when exposing the server beyond localhost.
-  #
-  # Clients must send: Authorization: Bearer <your-token>
-  #
-  # Generate with `openssl rand -base64 32`
-  # api_key: ""
+```bash
+cp .env.example ~/.groundmemory/.env   # pip install
+cp .env.example ./data/.env            # Docker
 ```
 
 ---
 
 ### Environment Variables
 
-All settings are available as environment variables using the `GROUNDMEMORY_` prefix. Nested keys use double-underscore (`__`) as a separator. Environment variables take priority over `groundmemory.yaml`.
+All settings are available as environment variables using the `GROUNDMEMORY_` prefix. Nested keys use double-underscore (`__`) as a separator. Environment variables take priority over `.env` file values.
 
 **Embedding**
 
@@ -1128,12 +897,12 @@ groundmemory --restore 2026-04-08
 groundmemory --restore 2026-04-08_165530
 ```
 
-The workspace is always resolved from your environment / config (same as `groundmemory-mcp`). Set `GROUNDMEMORY_WORKSPACE` or configure `workspace` in `groundmemory.yaml` to target a specific workspace before running these commands.
+The workspace is always resolved from your environment / config (same as `groundmemory-mcp`). Set `GROUNDMEMORY_WORKSPACE` in your `.env` or as an environment variable to target a specific workspace before running these commands.
 
 If a date matches multiple backups, the command prints the list and exits - you can then use the full timestamp to disambiguate. After restoring, restart the MCP server if it is running.
 
 **Configuration priority (highest wins):**
 
 ```
-constructor kwargs  >  environment variables  >  $GROUNDMEMORY_ROOT_DIR/.env / ./.env  >  $GROUNDMEMORY_ROOT_DIR/groundmemory.yaml / ./groundmemory.yaml  >  built-in defaults
+constructor kwargs  >  environment variables  >  $GROUNDMEMORY_ROOT_DIR/.env / ./.env  >  built-in defaults
 ```

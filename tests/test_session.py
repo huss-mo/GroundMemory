@@ -205,36 +205,3 @@ class TestSessionBootstrap:
             s.close()
 
 
-class TestConfigFromYaml:
-    def test_from_yaml_loads_embedding_provider(self, tmp_path):
-        import yaml
-        cfg_file = tmp_path / "test.yaml"
-        cfg_file.write_text(yaml.dump({
-            "embedding": {"provider": "none"},
-            "search": {"top_k": 12},
-        }))
-        cfg = groundmemoryConfig.from_yaml(cfg_file)
-        assert cfg.embedding.provider == "none"
-        assert cfg.search.top_k == 12
-
-    def test_auto_falls_back_to_defaults_without_yaml(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.delenv("GROUNDMEMORY_EMBEDDING__BASE_URL", raising=False)
-        monkeypatch.setenv("GROUNDMEMORY_EMBEDDING__PROVIDER", "none")
-        # Patch _load_yaml_config so the project-root groundmemory.yaml is not picked up
-        import groundmemory.config as _cfg_module
-        monkeypatch.setattr(_cfg_module, "_load_yaml_config", lambda filename="groundmemory.yaml": {})
-        cfg = groundmemoryConfig.auto()
-        assert cfg.embedding.provider == "none"
-
-    def test_env_overrides_yaml(self, tmp_path, monkeypatch):
-        import yaml
-        cfg_file = tmp_path / "test.yaml"
-        cfg_file.write_text(yaml.dump({
-            "embedding": {"provider": "local", "local_model": "all-MiniLM-L6-v2"},
-        }))
-        monkeypatch.setenv("GROUNDMEMORY_EMBEDDING__PROVIDER", "none")
-        monkeypatch.delenv("GROUNDMEMORY_EMBEDDING__BASE_URL", raising=False)
-        cfg = groundmemoryConfig.from_yaml(cfg_file)
-        # env var should win over YAML
-        assert cfg.embedding.provider == "none"
