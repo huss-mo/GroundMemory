@@ -1,0 +1,17 @@
+{
+    admin off
+}
+
+:4292 {
+    root * /srv
+
+    @unauthorized {
+        not header Authorization "Bearer {$FILE_SERVER_TOKEN}"
+        expression `"{$FILE_SERVER_TOKEN}" != ""`
+    }
+    respond @unauthorized 401
+
+    file_server {
+        hide .index
+    }
+}

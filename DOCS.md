@@ -13,6 +13,7 @@ For a project overview and quick start, see [README.md](README.md).
     - [Option 1 - Docker](#option-1---docker)
     - [Option 2 - pip](#option-2---pip)
     - [Network Access](#network-access)
+    - [Remote File Access](#remote-file-access)
     - [Embedding Providers](#embedding-providers)
   - [MCP Server](#mcp-server)
     - [Running the Server](#running-the-server)
@@ -73,7 +74,7 @@ To run a **second workspace** on a different port (e.g. for a separate project o
 #   image: GroundMemory:latest
 #   restart: unless-stopped
 #   ports:
-#     - "4243:4242"
+#     - "4292:4242"
 #   volumes:
 #     - ./data:/data
 #   env_file:
@@ -183,6 +184,47 @@ When `api_key` is not set (the default), no authentication is enforced and the s
 Do not expose GroundMemory directly on the public internet. Use a reverse proxy (nginx, Caddy, Traefik) with TLS in front of it, and set `api_key` for authentication.
 
 The `GROUNDMEMORY_MCP__FORWARDED_ALLOW_IPS` setting controls which upstream IPs uvicorn trusts to pass `X-Forwarded-For` / `X-Real-IP` headers. Set it to your proxy's internal IP when running behind a reverse proxy (default: `127.0.0.1`).
+
+### Remote File Access
+
+GroundMemory can optionally expose workspace Markdown files over plain HTTP, so any tool that can make a GET request can fetch them. This is implemented as a separate [Caddy](https://caddyserver.com) sidecar service — it requires no changes to the GroundMemory server itself and is off by default.
+
+**Enabling the file server**
+
+Uncomment the `file-server` service in `docker-compose.yml` and restart:
+
+```bash
+docker compose up -d file-server
+```
+
+Files are served at `http://localhost:4292/<workspace>/<file>`:
+
+```
+http://localhost:4292/default/MEMORY.md
+http://localhost:4292/default/USER.md
+http://localhost:4292/default/AGENTS.md
+http://localhost:4292/default/daily/2025-01-01.md
+```
+
+The `.index/` directory (SQLite database) is never served.
+
+**Authentication**
+
+Set `FILE_SERVER_TOKEN` in your `.env` to require a Bearer token on every request:
+
+```bash
+FILE_SERVER_TOKEN=your-secret-token
+```
+
+Clients must then include the token in each request:
+
+```
+Authorization: Bearer your-secret-token
+```
+
+When `FILE_SERVER_TOKEN` is unset (the default), the file server allows unauthenticated access. Set it whenever the port is reachable beyond localhost.
+
+Generate a token with: `openssl rand -base64 32`
 
 ### Embedding Providers
 

@@ -85,3 +85,30 @@ services:
   #       required: false
   #   environment:
   #     GROUNDMEMORY_WORKSPACE: personal
+
+  # ---------------------------------------------------------------------------
+  # Optional: HTTP file server for remote workspace access
+  #
+  # Exposes workspace Markdown files over plain HTTP so any HTTP client can
+  # fetch them with a GET request. Disabled by default — uncomment to enable.
+  #
+  # Files are served at:
+  #   http://localhost:4292/<workspace>/MEMORY.md
+  #   http://localhost:4292/<workspace>/USER.md
+  #   http://localhost:4292/<workspace>/AGENTS.md
+  #   http://localhost:4292/<workspace>/daily/YYYY-MM-DD.md
+  #   (default workspace name is "default")
+  #
+  # To protect access, set FILE_SERVER_TOKEN in .env.
+  # ---------------------------------------------------------------------------
+  # file-server:
+  #   image: caddy:2-alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "4292:4292"
+  #   volumes:
+  #     - ./data:/srv:ro
+  #     - ./Caddyfile:/etc/caddy/Caddyfile:ro
+  #   env_file:
+  #     - path: .env
+  #       required: false
