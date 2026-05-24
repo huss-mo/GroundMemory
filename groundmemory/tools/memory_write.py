@@ -52,7 +52,7 @@ def build_schema(custom_files=()) -> dict:
         for cf in custom_files:
             line = f"  '{cf.name}'"
             if cf.description:
-                line += f" — {cf.description}"
+                line += f" - {cf.description}"
             lines.append(line)
         file_desc += "\nCustom files (append + edit):\n" + "\n".join(lines)
 

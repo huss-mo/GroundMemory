@@ -3,6 +3,10 @@ groundmemory CLI entry point.
 
 Usage
 -----
+Re-index all workspace files:
+
+    groundmemory --sync
+
 Create a manual backup:
 
     groundmemory --backup
@@ -29,6 +33,26 @@ def _get_workspace_path() -> Path:
     from groundmemory.config import groundmemoryConfig
     cfg = groundmemoryConfig.auto()
     return cfg.root_dir / cfg.workspace
+
+
+def cmd_sync(workspace_path: Path) -> None:
+    from groundmemory.config import groundmemoryConfig
+    from groundmemory.core.workspace import Workspace
+    from groundmemory.core.index import MemoryIndex
+    from groundmemory.core.embeddings import make_provider
+    from groundmemory.core.sync import sync_workspace
+
+    cfg = groundmemoryConfig.auto()
+    ws = Workspace(workspace_path, custom_files=cfg.custom_files)
+    index = MemoryIndex(ws.db_path)
+    provider = make_provider(cfg.embedding)
+    result = sync_workspace(ws, index, provider, cfg.chunking, force=True)
+    index.close()
+    indexed = result.get("added", 0) + result.get("updated", 0)
+    print(f"Sync complete for workspace '{workspace_path.name}':")
+    print(f"  indexed:  {indexed}")
+    print(f"  skipped:  {result.get('skipped', 0)}")
+    print(f"  deleted:  {result.get('deleted', 0)}")
 
 
 def cmd_backup(workspace_path: Path) -> None:
@@ -93,6 +117,11 @@ def main() -> None:
         description="GroundMemory workspace management CLI.",
     )
     parser.add_argument(
+        "--sync",
+        action="store_true",
+        help="Re-index all workspace files (useful after manual edits outside the agent).",
+    )
+    parser.add_argument(
         "--backup",
         action="store_true",
         help="Create a manual backup of the current workspace.",
@@ -115,7 +144,9 @@ def main() -> None:
 
     workspace_path = _get_workspace_path()
 
-    if args.backup:
+    if args.sync:
+        cmd_sync(workspace_path)
+    elif args.backup:
         cmd_backup(workspace_path)
     elif args.list_backups:
         cmd_list_backups(workspace_path)

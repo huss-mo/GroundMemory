@@ -187,7 +187,7 @@ The `GROUNDMEMORY_MCP__FORWARDED_ALLOW_IPS` setting controls which upstream IPs 
 
 ### Remote File Access
 
-GroundMemory can optionally expose workspace Markdown files over plain HTTP, so any tool that can make a GET request can fetch them. This is implemented as a separate [Caddy](https://caddyserver.com) sidecar service — it requires no changes to the GroundMemory server itself and is off by default.
+GroundMemory can optionally expose workspace Markdown files over plain HTTP, so any tool that can make a GET request can fetch them. This is implemented as a separate [Caddy](https://caddyserver.com) sidecar service - it requires no changes to the GroundMemory server itself and is off by default.
 
 **Enabling the file server**
 
@@ -937,7 +937,7 @@ GROUNDMEMORY_CUSTOM_FILES='[
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `name` | string | required | Filename (e.g. `RESEARCH.md`). Flat — no subdirectories. |
+| `name` | string | required | Filename (e.g. `RESEARCH.md`). Flat - no subdirectories. |
 | `description` | string | `""` | Short purpose text shown in tool schemas and as the bootstrap section header. Tell the agent what goes here. |
 | `inject` | bool | `true` | Include file content in the bootstrap system prompt at session start. |
 | `max_chars` | int or null | `null` | Max chars injected for this file. `null` uses the global `MAX_CHARS_PER_FILE` limit. |
@@ -945,13 +945,23 @@ GROUNDMEMORY_CUSTOM_FILES='[
 | `compactable` | bool | `false` | Include in `memory_compact` targets. The file will also appear in the compaction notice when memory is large. |
 
 **Behaviour:**
-- Custom files are created on first write — they do not need to exist before the agent runs.
+- Custom files are created on first write - they do not need to exist before the agent runs.
 - If `inject=true` but the file does not exist or is empty, the bootstrap section is silently skipped.
 - Custom files support all four `memory_write` modes: append, replace_text, replace_lines, and delete. Unlike MEMORY.md and daily logs, they are not append-only.
 - In `memory_read` SEARCH mode, pass `file="RESEARCH.md"` to scope results to that file. In GET mode, pass `file="RESEARCH.md"` to read it directly.
 - Non-searchable custom files still appear in `memory_list`.
 
-**Agent guidance:** The agent learns about custom files through two channels — the `memory_write` tool schema (which lists each file's name and description) and the bootstrap header (which shows the file's content with the description as a section title). You do not need to write extensive system prompt instructions for each file; the `description` field is sufficient for most cases.
+**Agent guidance:** The agent learns about custom files through two channels - the `memory_write` tool schema (which lists each file's name and description) and the bootstrap header (which shows the file's content with the description as a section title). You do not need to write extensive system prompt instructions for each file; the `description` field is sufficient for most cases.
+
+**Sync**
+
+When you edit a memory file manually (outside the agent), the SQLite index is out of date until it is re-synced. Run `--sync` to re-index the entire workspace immediately:
+
+```bash
+groundmemory --sync
+```
+
+This is equivalent to what `GROUNDMEMORY_BOOTSTRAP__SYNC_MEMORY_ON_BOOTSTRAP=true` does automatically at session start, but triggered on demand. Useful after bulk edits, git operations, or any time you want the next `memory_read` search to reflect manual changes without waiting for a new session.
 
 **Backup and Restore**
 

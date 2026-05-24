@@ -177,7 +177,7 @@ def build_bootstrap_prompt(
         if not cf.inject:
             continue
         cf_path = workspace.path / cf.name
-        title = f"{cf.name} — {cf.description}" if cf.description else cf.name
+        title = f"{cf.name} - {cf.description}" if cf.description else cf.name
         per_file_max = cf.max_chars if cf.max_chars is not None else cfg.max_chars_per_file
         if not _add(title, cf_path, max_chars_override=per_file_max):
             break

@@ -180,7 +180,7 @@ class TestCustomFileBootstrap:
     def test_max_chars_override(self, tmp_path):
         cf = CustomFileConfig(name="NOTES.md", inject=True, max_chars=20)
         ws = Workspace(tmp_path / "ws", custom_files=[cf])
-        # 200 chars — well above the 20 char limit
+        # 200 chars - well above the 20 char limit
         (ws.path / "NOTES.md").write_text("q" * 200, encoding="utf-8")
         cfg = BootstrapConfig()
         result = build_bootstrap_prompt(ws, cfg)

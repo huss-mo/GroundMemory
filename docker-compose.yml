@@ -90,7 +90,7 @@ services:
   # Optional: HTTP file server for remote workspace access
   #
   # Exposes workspace Markdown files over plain HTTP so any HTTP client can
-  # fetch them with a GET request. Disabled by default — uncomment to enable.
+  # fetch them with a GET request. Disabled by default - uncomment to enable.
   #
   # Files are served at:
   #   http://localhost:4292/<workspace>/MEMORY.md

@@ -683,3 +683,58 @@ class TestCLIBackup:
         main()
 
         assert len(list_backups(ws)) == 1
+
+
+# ===========================================================================
+# 11. CLI: groundmemory --sync
+# ===========================================================================
+
+
+class TestCLISync:
+    def _make_workspace(self, tmp_path):
+        """Create a minimal workspace with one memory file."""
+        from groundmemory.core.workspace import Workspace
+        ws = Workspace(tmp_path / "ws")
+        ws.memory_file.write_text("# Memory\n\nSome content.", encoding="utf-8")
+        return ws.path
+
+    def test_cmd_sync_prints_summary(self, tmp_path, capsys):
+        from groundmemory.__main__ import cmd_sync
+
+        ws = self._make_workspace(tmp_path)
+        cmd_sync(ws)
+
+        out = capsys.readouterr().out
+        assert "Sync complete" in out
+        assert "indexed:" in out
+        assert "skipped:" in out
+        assert "deleted:" in out
+
+    def test_cmd_sync_indexes_files(self, tmp_path, capsys):
+        from groundmemory.__main__ import cmd_sync
+
+        ws = self._make_workspace(tmp_path)
+        cmd_sync(ws)
+
+        out = capsys.readouterr().out
+        # At least one file must have been indexed
+        import re
+        indexed = int(re.search(r"indexed:\s+(\d+)", out).group(1))
+        assert indexed > 0
+
+    def test_sync_flag_wired_in_parser(self, tmp_path, monkeypatch, capsys):
+        """--sync flag reaches cmd_sync via main()."""
+        import sys
+        from groundmemory.__main__ import main
+
+        ws = self._make_workspace(tmp_path)
+
+        monkeypatch.setattr(sys, "argv", ["groundmemory", "--sync"])
+        monkeypatch.setattr(
+            "groundmemory.__main__._get_workspace_path", lambda: ws
+        )
+
+        main()
+
+        out = capsys.readouterr().out
+        assert "Sync complete" in out
