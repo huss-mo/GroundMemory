@@ -35,14 +35,14 @@ def _get_workspace_path() -> Path:
     return cfg.root_dir / cfg.workspace
 
 
-def cmd_sync(workspace_path: Path) -> None:
+def cmd_sync(workspace_path: Path, config=None) -> None:
     from groundmemory.config import groundmemoryConfig
     from groundmemory.core.workspace import Workspace
     from groundmemory.core.index import MemoryIndex
     from groundmemory.core.embeddings import make_provider
     from groundmemory.core.sync import sync_workspace
 
-    cfg = groundmemoryConfig.auto()
+    cfg = config if config is not None else groundmemoryConfig.auto()
     ws = Workspace(workspace_path, custom_files=cfg.custom_files)
     index = MemoryIndex(ws.db_path)
     provider = make_provider(cfg.embedding)
