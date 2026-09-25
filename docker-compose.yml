@@ -101,31 +101,31 @@ services:
   #     Host header mcpo sends when it connects over the compose network).
   #   MCPO_API_KEY - bearer token Open WebUI must send to mcpo.
   # ---------------------------------------------------------------------------
-  groundmemory-mcpo:
-    image: ghcr.io/open-webui/mcpo:main
-    restart: unless-stopped
-    depends_on:
-      - groundmemory
-    ports:
-      - "8282:8282"
-    env_file:
-      - path: .env
-        required: false
-    entrypoint: ["sh", "-c"]
-    command:
-      - |
-        cat > /tmp/config.json <<CONFIG
-        {
-          "mcpServers": {
-            "groundmemory": {
-              "type": "streamable-http",
-              "url": "http://groundmemory:4242/mcp",
-              "headers": { "Authorization": "Bearer ${GROUNDMEMORY_MCP__API_KEY}" }
-            }
-          }
-        }
-        CONFIG
-        exec mcpo --config /tmp/config.json --host 0.0.0.0 --port 8282 --api-key "${MCPO_API_KEY}"
+  # groundmemory-mcpo:
+  #   image: ghcr.io/open-webui/mcpo:main
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - groundmemory
+  #   ports:
+  #     - "8282:8282"
+  #   env_file:
+  #     - path: .env
+  #       required: false
+  #   entrypoint: ["sh", "-c"]
+  #   command:
+  #     - |
+  #       cat > /tmp/config.json <<CONFIG
+  #       {
+  #         "mcpServers": {
+  #           "groundmemory": {
+  #             "type": "streamable-http",
+  #             "url": "http://groundmemory:4242/mcp",
+  #             "headers": { "Authorization": "Bearer ${GROUNDMEMORY_MCP__API_KEY}" }
+  #           }
+  #         }
+  #       }
+  #       CONFIG
+  #       exec mcpo --config /tmp/config.json --host 0.0.0.0 --port 8282 --api-key "${MCPO_API_KEY}"
 
   # ---------------------------------------------------------------------------
   # Optional: HTTP file server for remote workspace access
