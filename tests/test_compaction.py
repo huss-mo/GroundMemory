@@ -698,11 +698,17 @@ class TestCLISync:
         ws.memory_file.write_text("# Memory\n\nSome content.", encoding="utf-8")
         return ws.path
 
+    def _none_config(self, tmp_path):
+        return groundmemoryConfig(
+            root_dir=tmp_path,
+            embedding=EmbeddingConfig(provider="none"),
+        )
+
     def test_cmd_sync_prints_summary(self, tmp_path, capsys):
         from groundmemory.__main__ import cmd_sync
 
         ws = self._make_workspace(tmp_path)
-        cmd_sync(ws)
+        cmd_sync(ws, config=self._none_config(tmp_path))
 
         out = capsys.readouterr().out
         assert "Sync complete" in out
@@ -714,7 +720,7 @@ class TestCLISync:
         from groundmemory.__main__ import cmd_sync
 
         ws = self._make_workspace(tmp_path)
-        cmd_sync(ws)
+        cmd_sync(ws, config=self._none_config(tmp_path))
 
         out = capsys.readouterr().out
         # At least one file must have been indexed
@@ -732,6 +738,10 @@ class TestCLISync:
         monkeypatch.setattr(sys, "argv", ["groundmemory", "--sync"])
         monkeypatch.setattr(
             "groundmemory.__main__._get_workspace_path", lambda: ws
+        )
+        none_cfg = self._none_config(tmp_path)
+        monkeypatch.setattr(
+            groundmemoryConfig, "auto", classmethod(lambda cls: none_cfg)
         )
 
         main()
