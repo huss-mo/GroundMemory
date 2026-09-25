@@ -5,7 +5,10 @@ Base class and shared utilities for all groundmemory tools.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from groundmemory.config import groundmemoryConfig
 
 
 class MemoryToolError(Exception):
@@ -22,20 +25,43 @@ def err(message: str) -> dict:
     return {"status": "error", "message": message}
 
 
-def is_immutable(file: str) -> bool:
-    """
-    Return True if *file* refers to an append-only immutable memory tier.
+_STANDARD_TIER_NAMES = ("MEMORY.md", "USER.md", "AGENTS.md", "RELATIONS.md")
 
-    MEMORY.md and daily/*.md are write-once history files - their existing
-    content must never be mutated or deleted by the agent.  Only USER.md,
-    AGENTS.md, and any other files are editable.
+
+def is_immutable(file: str, config: "groundmemoryConfig") -> bool:
+    """
+    Return True if replace/delete (edit) operations on *file* are disallowed.
+
+    Append is never affected by this check - it only governs whether existing
+    content in the file may be mutated or removed.
+
+    A specific dated daily log (e.g. 'daily/2026-01-01.md') is always
+    immutable history, regardless of config. The bare 'daily' keyword (today's
+    live log) and the standard MEMORY.md/USER.md/AGENTS.md/RELATIONS.md tiers
+    are mutable only if listed in config.mutable_tiers; any other (custom)
+    file falls back to its own CustomFileConfig.mutable flag, defaulting to
+    mutable if unrecognised.
     """
     p = Path(file)
-    # Normalise: strip leading separators so both "daily/x.md" and
-    # "/abs/path/.../daily/x.md" are caught.
     parts = p.parts
     name = p.name
-    return name == "MEMORY.md" or (len(parts) >= 2 and parts[-2] == "daily")
+
+    # A specific dated daily file - always immutable, never a config option.
+    if len(parts) >= 2 and parts[-2].lower() == "daily":
+        return True
+
+    # The "daily" keyword refers to today's live log.
+    if name.lower() == "daily":
+        return "daily" not in config.mutable_tiers
+
+    if name in _STANDARD_TIER_NAMES:
+        return name not in config.mutable_tiers
+
+    for cf in config.custom_files:
+        if cf.name.upper() == name.upper():
+            return not cf.mutable
+
+    return False
 
 
 _IMMUTABLE_MSG = (

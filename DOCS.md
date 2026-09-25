@@ -540,7 +540,7 @@ system_prompt = session.bootstrap()
 
 Use `session.execute_tool(name, **kwargs)` to call tools programmatically, or pass the schemas from `build_tool_registry(config)` to your model framework.
 
-> **Immutability rule:** `MEMORY.md` and all `daily/*.md` files are append-only. The DELETE, REPLACE_TEXT, and REPLACE_LINES modes of `memory_write` will reject any attempt to modify them. Use `memory_write` in APPEND mode to add new information to these files.
+> **Immutability rule (default config):** `MEMORY.md` and today's live `daily` log are append-only. The DELETE, REPLACE_TEXT, and REPLACE_LINES modes of `memory_write` will reject any attempt to modify them. Use `memory_write` in APPEND mode to add new information to these files. A specific dated daily log (`daily/YYYY-MM-DD.md`) is always immutable history, regardless of config. Which tiers are editable is configurable - see [`GROUNDMEMORY_MUTABLE_TIERS`](#tier-mutability) below - and each custom file has its own `mutable` flag.
 >
 > **Hard-delete:** DELETE mode physically removes lines from the file - no tombstone comment is written.
 
@@ -624,7 +624,7 @@ The on-disk layout is a **single directory level** under `~/.groundmemory`:
     ├── AGENTS.md              agent operating instructions
     ├── RELATIONS.md           human-readable entity relation graph
     ├── daily/
-    │   └── YYYY-MM-DD.md     append-only daily logs
+    │   └── YYYY-MM-DD.md     daily logs (today's is append-only by default, configurable)
     └── .index/
         └── memory.db          SQLite index (chunks + FTS5 + relations + embeddings)
 ```
@@ -734,7 +734,7 @@ Four core tools + two optional (config-gated) tools exposed to the LLM via funct
 | Symbol | Description |
 |---|---|
 | `ok(data)` / `err(msg)` | Wrap a successful or error tool result |
-| `is_immutable(file)` | Return `True` for `MEMORY.md` and `daily/*.md` |
+| `is_immutable(file, config)` | Return `True` if edit (replace/delete) operations on `file` are disallowed - consults `config.mutable_tiers` for the standard tiers and today's `daily` log, `config.custom_files[i].mutable` for custom files, and always `True` for a specific dated `daily/YYYY-MM-DD.md` file |
 | `sync_after_edit(session, resolved, is_relations, base_payload)` | Re-index a file after an in-place edit and return `ok(payload)`. Calls `sync_file` (and, when `is_relations=True`, `sync_relations_from_file`) non-fatally - sync failures add a `warning` key rather than raising. |
 
 #### 11. LLM Adapters (`GroundMemory/adapters/`)
@@ -778,17 +778,17 @@ LLM receives system prompt + tool schemas + user message
      │       └─► sync.sync_file                         → chunk → embed → upsert SQLite
      │
      ├─► memory_write(file, search, content)   ← REPLACE_TEXT mode
-     │       └─► is_immutable(file) check               → reject if MEMORY.md or daily/*.md
+     │       └─► is_immutable(file, config) check        → reject per config.mutable_tiers / custom_files[i].mutable
      │       └─► storage.replace_text                   → first-match replacement in Markdown
      │       └─► sync.sync_file                         → re-index
      │
      ├─► memory_write(file, start, end, content)  ← REPLACE_LINES mode
-     │       └─► is_immutable(file) check               → reject if MEMORY.md or daily/*.md
+     │       └─► is_immutable(file, config) check        → reject per config.mutable_tiers / custom_files[i].mutable
      │       └─► storage.replace_lines                  → line-range replacement in Markdown
      │       └─► sync.sync_file                         → re-index
      │
      ├─► memory_write(file, start, end, content="")  ← DELETE mode
-     │       └─► is_immutable(file) check               → reject if MEMORY.md or daily/*.md
+     │       └─► is_immutable(file, config) check        → reject per config.mutable_tiers / custom_files[i].mutable
      │       └─► storage.hard_delete_lines              → physically removes lines (no tombstone)
      │       └─► sync.sync_file                         → re-index
      │
@@ -896,6 +896,14 @@ All settings are available as environment variables using the `GROUNDMEMORY_` pr
 | `GROUNDMEMORY_BOOTSTRAP__COMPACTION_TOKEN_COUNTER` | Token counting method: `"approx"` (`len // 4`) or `"tiktoken"` (accurate BPE, requires `pip install groundmemory[local]`). | `"approx"` |
 | `GROUNDMEMORY_BOOTSTRAP__COMPACTION_TIERS` | Memory files the agent is allowed to compact. Daily logs are never compacted. | `["MEMORY.md"]` |
 
+**Tier Mutability**
+
+Which standard tiers allow `memory_write`'s REPLACE_TEXT/REPLACE_LINES/DELETE modes. Append is always allowed on every standard tier regardless of this setting. See [Tier Mutability](#tier-mutability) below for details.
+
+| Variable | Description | Default |
+|---|---|---|
+| `GROUNDMEMORY_MUTABLE_TIERS` | JSON array of standard tiers on which edit (replace/delete) operations are allowed. Valid entries: `"MEMORY.md"`, `"USER.md"`, `"AGENTS.md"`, `"RELATIONS.md"`, `"daily"` (today's live log only - a specific dated log is always immutable and can't be listed here). Tiers left out are append-only. | `["USER.md","AGENTS.md","RELATIONS.md"]` |
+
 **Custom Files**
 
 | Variable | Description | Default |
@@ -919,6 +927,18 @@ All settings are available as environment variables using the `GROUNDMEMORY_` pr
 | `GROUNDMEMORY_MCP__FORWARDED_ALLOW_IPS` | IPs uvicorn trusts to pass `X-Forwarded-For` headers. Not needed for plain LAN access - only set when a reverse proxy sits in front of GroundMemory. | `127.0.0.1` |
 | `GROUNDMEMORY_MCP__API_KEY` | Static bearer token required on every request. When unset (default), no authentication is enforced. Set when exposing the server beyond localhost. Clients must send `Authorization: Bearer <token>`. | *(unset)* |
 
+### Tier Mutability
+
+By default, `memory_write`'s REPLACE_TEXT, REPLACE_LINES, and DELETE modes are rejected on `MEMORY.md` and today's live `daily` log (they are append-only), and allowed on `USER.md`, `AGENTS.md`, and `RELATIONS.md`. This is configurable via `GROUNDMEMORY_MUTABLE_TIERS` (see the reference table above) - a JSON array naming which standard tiers accept edits. For example, set `GROUNDMEMORY_MUTABLE_TIERS=["MEMORY.md","USER.md","AGENTS.md","RELATIONS.md"]` if you want the agent to be able to correct or remove existing entries in `MEMORY.md` instead of only appending timestamped corrections; leaving a tier out of the array makes it append-only.
+
+Append is never affected by this setting - it is always allowed on the four standard append targets (`MEMORY.md`, `USER.md`, `AGENTS.md`, `daily`) regardless of `GROUNDMEMORY_MUTABLE_TIERS`.
+
+A specific dated daily log (`daily/YYYY-MM-DD.md`) is always immutable history and cannot be added to the array - `"daily"` in `GROUNDMEMORY_MUTABLE_TIERS` only governs today's log, addressed via the literal `daily` keyword (e.g. `memory_write(file="daily", search=..., content=...)`).
+
+This is a separate concern from compaction (`GROUNDMEMORY_BOOTSTRAP__COMPACTION_TIERS`): a tier can be append-only for normal edits yet still be eligible for `memory_compact`'s full-rewrite escape hatch (this is the default for `MEMORY.md`), and vice versa.
+
+Custom files have their own per-file `mutable` flag instead of a tier-wide setting - see below.
+
 ### Custom Files
 
 Custom files extend the standard memory tier set (MEMORY.md, USER.md, AGENTS.md, RELATIONS.md, daily/) with arbitrary Markdown files you define. Each custom file is fully integrated: it appears in bootstrap injection, participates in hybrid search, can be read and written via the standard tools, and is listed by `memory_list`.
@@ -929,7 +949,8 @@ Declare custom files via the `GROUNDMEMORY_CUSTOM_FILES` environment variable (J
 GROUNDMEMORY_CUSTOM_FILES='[
   {"name": "RESEARCH.md", "description": "Research notes and literature findings"},
   {"name": "DECISIONS.md", "description": "Architectural decisions and their rationale", "compactable": true},
-  {"name": "GLOSSARY.md", "description": "Domain terminology", "inject": false, "max_chars": 3000}
+  {"name": "GLOSSARY.md", "description": "Domain terminology", "inject": false, "max_chars": 3000},
+  {"name": "AUDIT_LOG.md", "description": "Append-only audit trail", "mutable": false}
 ]'
 ```
 
@@ -943,11 +964,12 @@ GROUNDMEMORY_CUSTOM_FILES='[
 | `max_chars` | int or null | `null` | Max chars injected for this file. `null` uses the global `MAX_CHARS_PER_FILE` limit. |
 | `searchable` | bool | `true` | Index this file for vector and keyword search. Set to `false` for reference files you only read directly. |
 | `compactable` | bool | `false` | Include in `memory_compact` targets. The file will also appear in the compaction notice when memory is large. |
+| `mutable` | bool | `true` | Allow REPLACE_TEXT/REPLACE_LINES/DELETE on this file via `memory_write`. Set to `false` for an append-only history file, like `MEMORY.md`. |
 
 **Behaviour:**
 - Custom files are created on first write - they do not need to exist before the agent runs.
 - If `inject=true` but the file does not exist or is empty, the bootstrap section is silently skipped.
-- Custom files support all four `memory_write` modes: append, replace_text, replace_lines, and delete. Unlike MEMORY.md and daily logs, they are not append-only.
+- Custom files support all four `memory_write` modes by default: append, replace_text, replace_lines, and delete. Set `mutable: false` to make a custom file append-only, like `MEMORY.md`.
 - In `memory_read` SEARCH mode, pass `file="RESEARCH.md"` to scope results to that file. In GET mode, pass `file="RESEARCH.md"` to read it directly.
 - Non-searchable custom files still appear in `memory_list`.
 

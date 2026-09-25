@@ -77,6 +77,10 @@ class CustomFileConfig(BaseModel):
     max_chars: Optional[int] = None
     searchable: bool = True
     compactable: bool = False
+    # Whether replace/delete (edit) operations are allowed on this file.
+    # True (default) = full CRUD, matching today's custom-file behavior.
+    # False = append-only, like the built-in MEMORY.md/daily tiers.
+    mutable: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +200,13 @@ class RelationsConfig(BaseSettings):
     )
 
     dedup_threshold: float = 0.92
+
+
+# Standard tiers on which memory_write's REPLACE_TEXT/REPLACE_LINES/DELETE
+# modes are allowed by default. Append is always allowed on every standard
+# tier regardless of this list - it only governs editing/removing existing
+# content. Tiers not in the list are append-only.
+DEFAULT_MUTABLE_TIERS: tuple[str, ...] = ("USER.md", "AGENTS.md", "RELATIONS.md")
 
 
 class MCPConfig(BaseSettings):
@@ -319,7 +330,10 @@ class groundmemoryConfig(BaseSettings):
         GROUNDMEMORY_DISPATCHER_MODE=true     - replace all tools with single memory_tool dispatcher
 
     Custom files (JSON array):
-        GROUNDMEMORY_CUSTOM_FILES='[{"name":"RESEARCH.md","description":"Research notes","inject":true,"searchable":true,"compactable":false}]'
+        GROUNDMEMORY_CUSTOM_FILES='[{"name":"RESEARCH.md","description":"Research notes","inject":true,"searchable":true,"compactable":false,"mutable":true}]'
+
+    Mutable tiers (which standard tiers allow edit/delete, not just append):
+        GROUNDMEMORY_MUTABLE_TIERS=["USER.md","AGENTS.md","RELATIONS.md"]
 
     See groundmemory/config/.env.example for the full reference.
     """
@@ -358,6 +372,14 @@ class groundmemoryConfig(BaseSettings):
     relations: RelationsConfig = Field(default_factory=RelationsConfig)
     bootstrap: BootstrapConfig = Field(default_factory=BootstrapConfig)
     mcp: MCPConfig = Field(default_factory=MCPConfig)
+
+    # Standard memory tiers on which memory_write's replace/delete (edit) modes
+    # are allowed. Append is always allowed on every standard tier regardless
+    # of this list. Valid entries: "MEMORY.md", "USER.md", "AGENTS.md",
+    # "RELATIONS.md", "daily" (today's live log only - a specific dated log,
+    # daily/YYYY-MM-DD.md, is always immutable and cannot be listed here).
+    # Env var: GROUNDMEMORY_MUTABLE_TIERS=["USER.md","AGENTS.md","RELATIONS.md"]
+    mutable_tiers: List[str] = Field(default_factory=lambda: list(DEFAULT_MUTABLE_TIERS))
 
     @property
     def workspace_path(self) -> Path:

@@ -46,7 +46,7 @@ def build_tool_registry(
     else:
         # Core tools - memory_write schema is built with custom file awareness
         import copy
-        write_schema = memory_write.build_schema(config.custom_files)
+        write_schema = memory_write.build_schema(config.custom_files, config.mutable_tiers)
         all_tools = [
             (memory_bootstrap.SCHEMA, memory_bootstrap.run),
             (memory_read.SCHEMA, memory_read.run),

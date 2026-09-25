@@ -8,15 +8,17 @@ Dispatch logic (in priority order):
   4. else                                           → append to the file named by `file`
 
 Append filename → tier mapping:
-  MEMORY.md           → long_term  (append-only, timestamped)
-  USER.md             → user       (append-only, timestamped)
-  AGENTS.md           → agent      (append-only, timestamped)
-  daily               → daily      (today's log)
-  daily/YYYY-MM-DD.md → rejected   (daily logs are immutable once written)
+  MEMORY.md           → long_term  (append target)
+  USER.md             → user       (append target)
+  AGENTS.md           → agent      (append target)
+  daily               → daily      (today's log; append target)
+  daily/YYYY-MM-DD.md → rejected   (a specific dated daily log is always immutable)
 
-Edit operations (replace / delete) are allowed on:
-  USER.md, AGENTS.md, RELATIONS.md
-Edit operations are NOT allowed on MEMORY.md or daily/*.md (append-only).
+Edit operations (replace / delete) are gated per-tier by config.mutable_tiers
+and, for custom files, by each file's CustomFileConfig.mutable flag - see
+tools.base.is_immutable(). By default: MEMORY.md and 'daily' (today's log)
+are append-only; USER.md, AGENTS.md, RELATIONS.md, and custom files are
+editable.
 """
 
 from __future__ import annotations
@@ -41,11 +43,34 @@ _RELATIONS_FORMAT_REMINDER = (
     "Each non-blank line must follow: - [Subject] --predicate--> [Object] (YYYY-MM-DD)"
 )
 
-def build_schema(custom_files=()) -> dict:
-    """Build the memory_write tool schema, optionally listing custom files."""
+
+def _resolve_edit_target(session: "MemorySession", file: str) -> str:
+    """
+    Map the 'daily' keyword to today's concrete daily-log filename for edit
+    modes (replace/delete). Workspace.resolve_file('daily') would otherwise
+    resolve to the daily/ directory itself, not a file. All other filenames
+    pass through unchanged.
+    """
+    if file.strip().upper() == "DAILY":
+        return str(session.workspace.daily_file().relative_to(session.workspace.path))
+    return file
+
+def build_schema(custom_files=(), mutable_tiers: Optional[list[str]] = None) -> dict:
+    """Build the memory_write tool schema, reflecting configured tier/custom-file mutability."""
+    if mutable_tiers is None:
+        from groundmemory.config import DEFAULT_MUTABLE_TIERS
+        mutable_tiers = list(DEFAULT_MUTABLE_TIERS)
+
+    standard_tiers = ["MEMORY.md", "USER.md", "AGENTS.md", "RELATIONS.md", "daily"]
+    edit_targets = [t for t in standard_tiers if t in mutable_tiers]
+    append_only_targets = [
+        t for t in standard_tiers
+        if t not in mutable_tiers and t != "RELATIONS.md"  # RELATIONS.md is never an append target
+    ]
+
     file_desc = (
         "Target file. Append targets: 'MEMORY.md', 'USER.md', 'AGENTS.md', 'daily'. "
-        "Edit targets: 'USER.md', 'AGENTS.md', 'RELATIONS.md'."
+        f"Edit targets: {', '.join(repr(t) for t in edit_targets) if edit_targets else 'none'}."
     )
     if custom_files:
         lines = []
@@ -53,8 +78,15 @@ def build_schema(custom_files=()) -> dict:
             line = f"  '{cf.name}'"
             if cf.description:
                 line += f" - {cf.description}"
+            line += " (append + edit)" if cf.mutable else " (append-only)"
             lines.append(line)
-        file_desc += "\nCustom files (append + edit):\n" + "\n".join(lines)
+        file_desc += "\nCustom files:\n" + "\n".join(lines)
+
+    append_only_note = (
+        f"{' and '.join(repr(t) for t in append_only_targets)} "
+        f"{'are' if len(append_only_targets) != 1 else 'is'} append-only "
+        "and cannot be edited or deleted.\n\n"
+    ) if append_only_targets else ""
 
     return {
         "name": "memory_write",
@@ -66,8 +98,8 @@ def build_schema(custom_files=()) -> dict:
             "  DELETE       - supply `start_line` + `end_line` + `content=\"\"`; hard-deletes those lines.\n\n"
             "Append targets: 'MEMORY.md' (long-term facts), 'USER.md' (user profile), "
             "'AGENTS.md' (agent identity, character, and rules), 'daily' (today's log).\n"
-            "Edit targets (replace/delete): 'USER.md', 'AGENTS.md', 'RELATIONS.md'.\n"
-            "MEMORY.md and daily/*.md are append-only and cannot be edited or deleted.\n\n"
+            f"Edit targets (replace/delete): {', '.join(repr(t) for t in edit_targets) if edit_targets else 'none'}.\n"
+            f"{append_only_note}"
             "Before appending to MEMORY.md, USER.md, or AGENTS.md use memory_read with a query "
             "to check for near-duplicates; prefer REPLACE_TEXT or REPLACE_LINES to update existing entries.\n\n"
             "MEMORY.md is for durable knowledge - ask 'will this matter in three months?' If yes, write it there. "
@@ -139,12 +171,12 @@ def run(
     # Mode 1: REPLACE_TEXT  (search param provided)
     # -----------------------------------------------------------------------
     if search is not None:
-        if is_immutable(file):
+        if is_immutable(file, session.config):
             return err(_IMMUTABLE_MSG.format(file=file))
         if not search.strip():
             return err("'search' cannot be empty or whitespace.")
 
-        resolved = session.workspace.resolve_file(file)
+        resolved = session.workspace.resolve_file(_resolve_edit_target(session, file))
         if not resolved.exists():
             return err(f"File not found: {file}")
 
@@ -172,10 +204,10 @@ def run(
     # Mode 2 & 3: line-range operations (start_line + end_line provided)
     # -----------------------------------------------------------------------
     if start_line is not None and end_line is not None:
-        if is_immutable(file):
+        if is_immutable(file, session.config):
             return err(_IMMUTABLE_MSG.format(file=file))
 
-        resolved = session.workspace.resolve_file(file)
+        resolved = session.workspace.resolve_file(_resolve_edit_target(session, file))
         if not resolved.exists():
             return err(f"File not found: {file}")
 
