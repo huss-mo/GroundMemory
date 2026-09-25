@@ -87,6 +87,47 @@ services:
   #     GROUNDMEMORY_WORKSPACE: personal
 
   # ---------------------------------------------------------------------------
+  # mcpo - exposes the groundmemory MCP server as an OpenAPI/REST endpoint so it
+  # can be added to Open WebUI as a "Tool Server". Proxies to the streamable-http
+  # endpoint above rather than spawning groundmemory-mcp itself (groundmemory-mcp
+  # always runs its own HTTP server - it never speaks stdio - so mcpo must be
+  # pointed at it as a remote server, not launched as a subprocess).
+  #
+  # OpenAPI endpoint: http://localhost:8282/groundmemory
+  # Docs:             http://localhost:8282/groundmemory/docs
+  #
+  # Requires (see .env):
+  #   GROUNDMEMORY_MCP__ALLOWED_HOSTS must include "groundmemory:4242" (the
+  #     Host header mcpo sends when it connects over the compose network).
+  #   MCPO_API_KEY - bearer token Open WebUI must send to mcpo.
+  # ---------------------------------------------------------------------------
+  groundmemory-mcpo:
+    image: ghcr.io/open-webui/mcpo:main
+    restart: unless-stopped
+    depends_on:
+      - groundmemory
+    ports:
+      - "8282:8282"
+    env_file:
+      - path: .env
+        required: false
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        cat > /tmp/config.json <<CONFIG
+        {
+          "mcpServers": {
+            "groundmemory": {
+              "type": "streamable-http",
+              "url": "http://groundmemory:4242/mcp",
+              "headers": { "Authorization": "Bearer ${GROUNDMEMORY_MCP__API_KEY}" }
+            }
+          }
+        }
+        CONFIG
+        exec mcpo --config /tmp/config.json --host 0.0.0.0 --port 8282 --api-key "${MCPO_API_KEY}"
+
+  # ---------------------------------------------------------------------------
   # Optional: HTTP file server for remote workspace access
   #
   # Exposes workspace Markdown files over plain HTTP so any HTTP client can
