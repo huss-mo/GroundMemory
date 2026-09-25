@@ -12,9 +12,9 @@ from groundmemory.core.relations import (
     add_relation,
     parse_relations_from_file,
     sync_relations_from_file,
+    validate_relations_replacement as _validate_relations_replacement,
 )
 from groundmemory.session import MemorySession
-from groundmemory.tools.memory_replace import _validate_relations_replacement
 
 _EM = "\u2014"  # em dash used in RELATIONS.md format
 

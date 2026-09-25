@@ -1,8 +1,9 @@
 ﻿"""Tests for the delete mode of the memory_write tool (hard-delete).
 
-The internal memory_delete helper is still valid but no longer in ALL_TOOLS.
-We test the public surface: memory_write(file=..., start_line=N, end_line=M, content="")
-which triggers hard-delete (physical line removal, no tombstone).
+The standalone memory_delete tool has been removed; delete is now a mode of
+memory_write. We test the public surface: memory_write(file=..., start_line=N,
+end_line=M, content="") which triggers hard-delete (physical line removal, no
+tombstone).
 """
 from __future__ import annotations
 

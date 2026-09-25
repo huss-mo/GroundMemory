@@ -684,7 +684,7 @@ Single consolidated module for all relation logic. Stores typed entity triples (
 |---|---|
 | `add_relation(...)` | Write a relation to both SQLite and RELATIONS.md with semantic dedup |
 | `get_relations(...)` | Read relations from SQLite |
-| `parse_relations_from_text(text)` | Parse valid relation lines from a raw string; used by `memory_delete` to identify rows to remove without a temp-file round-trip |
+| `parse_relations_from_text(text)` | Parse valid relation lines from a raw string; used by `memory_write`'s delete mode to identify rows to remove without a temp-file round-trip |
 | `parse_relations_from_file(path)` | Parse valid lines from RELATIONS.md into `{subject, predicate, object, note}` dicts (delegates to `parse_relations_from_text`) |
 | `sync_relations_from_file(path, index)` | Upsert/delete SQLite rows to match RELATIONS.md exactly; called by `sync_file` / `sync_workspace` and via `sync_after_edit` after every in-place edit |
 | `validate_relations_replacement(text)` | Validate that every non-blank, non-comment line in a replacement string matches the RELATIONS.md format; returns `(all_valid, valid_lines, invalid_lines)` |
